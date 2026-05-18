@@ -34,7 +34,7 @@ features:
     details: Permissions are cached and persisted. Includes localStorage, sessionStorage, and custom storage adapters.
   - icon: 🌐
     title: Framework Agnostic
-    details: Works with Vue 3, Nuxt 3, and any JavaScript framework. Single library for all your needs.
+    details: Works with Vue 3, Nuxt 3, Nuxt 4, and any JavaScript framework. Single library for all your needs.
   - icon: 🚀
     title: SSR Safe
     details: Handles server-side rendering, hydration, and client-only scenarios gracefully.

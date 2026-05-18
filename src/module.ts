@@ -18,6 +18,10 @@ export default defineNuxtModule<ModuleOptions>({
     name: "vue-nuxt-permission",
     configKey: "permission",
     compatibility: {
+      // Supports Nuxt 3.x and Nuxt 4.x.
+      // The module uses only stable @nuxt/kit APIs (addPlugin, addImports,
+      // runtimeConfig) and the runtime plugin uses defineNuxtPlugin from
+      // #app — both unchanged in Nuxt 4.
       nuxt: ">=3.0.0",
     },
   },

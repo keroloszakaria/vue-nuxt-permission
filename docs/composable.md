@@ -2,6 +2,15 @@
 
 The `usePermission()` composable provides programmatic access to permission checks with full TypeScript support.
 
+::: tip Safe to call anywhere (v2.0.9+)
+`usePermission()` is bound to a singleton global reactive store, so it can
+be called at module top level (outside `setup()` / a component) — typical
+for auth bootstrap code that runs before any component mounts. The
+`permissions` ref it returns is shared across every call site, so calling
+`setPermissions()` from one module updates the directive and every other
+consumer immediately.
+:::
+
 ## Basic Usage
 
 ```typescript
@@ -174,8 +183,8 @@ async function handleLogout() {
 
 ::: tip setPermissions vs configurePermission
 
-- `setPermissions()` → updates memory **+** localStorage ✅ (use this)
-- `configurePermission()` → updates memory only ⚠️ (low-level, not for login)
+- `setPermissions()` — clears the cache, updates memory, and persists to localStorage. Use this for login/logout flows.
+- `configurePermission()` — lower-level: updates memory and (by default) persists to storage. Pass `{ persist: false }` to skip writes.
   :::
 
 ### Check Permissions on Mount

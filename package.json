@@ -1,7 +1,7 @@
 {
   "name": "vue-nuxt-permission",
-  "version": "2.0.9",
-  "description": "A unified permission system for Vue 3 and Nuxt 3/4 with directives, guards, and async support.",
+  "version": "2.0.10",
+  "description": "A unified permission system for Vue 3 and Nuxt 3 / Nuxt 4 with directives, guards, and async support.",
   "type": "module",
   "main": "dist/index.cjs",
   "module": "dist/index.mjs",

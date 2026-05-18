@@ -29,6 +29,49 @@ Features and changes currently in development but not yet released.
 
 ---
 
+## [2.0.9]
+
+Bug-fix release that hardens the guard, plugin, directive, and composable
+without changing any existing call signatures. Drop-in upgrade from 2.0.8.
+
+### Fixed
+
+- **`globalGuard` / `createPermissionGuard`** — a route's membership in
+  `protectedRoutes` now correctly implies `requiresAuth: true`, and
+  `permissions` declared on those entries implicitly enable
+  `checkPermission`. Previously, the guard silently skipped checks when
+  consumers omitted the `meta` flags.
+- **`globalGuard` permission source** — if `authState.permissions` is not
+  supplied, the guard now falls back to `authState.user?.permissions` and
+  auto-syncs discovered permissions into the package's global state so that
+  `v-permission` and `usePermission()` stay in sync after login.
+- **`PermissionPlugin` / `configurePermission`** — `persist: false` is now
+  honored end-to-end; the plugin no longer writes to localStorage when the
+  option is disabled.
+- **`v-permission` directive** — now reactively re-evaluates when global
+  permissions change (e.g., after `setPermissions()`), without relying on
+  the host component re-rendering. The `.once` modifier still opts out.
+- **`usePermission()` composable** — bound to a singleton reactive store so
+  it is safe to call at module top level. The returned `permissions` ref is
+  shared across all call sites, and `refresh()` only re-hydrates from
+  storage when storage actually has data (no longer wipes in-memory state).
+
+### Notes
+
+No API changes. Existing apps that already pass explicit `meta.requiresAuth`
+and `meta.checkPermission` flags continue to work unchanged.
+
+### Nuxt 4 compatibility
+
+The Nuxt module is now built against `@nuxt/kit` v4 and verified on both
+Nuxt 3.x and Nuxt 4.x. No consumer changes are required — the same
+`nuxt.config.ts` `modules: ['vue-nuxt-permission']` registration works in
+both. When running on Nuxt 4 (default `srcDir: 'app/'`), place middleware
+under `app/middleware/` instead of `middleware/`; the module itself is
+unaffected.
+
+---
+
 ## [1.0.0] - 2024-01-15
 
 Initial stable release of vue-nuxt-permission.

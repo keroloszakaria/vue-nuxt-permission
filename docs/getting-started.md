@@ -6,8 +6,8 @@ Get up and running with vue-nuxt-permission in minutes. This guide covers the ba
 
 Ensure you have:
 
-- Node.js 16+
-- Vue 3 or Nuxt 3
+- Node.js 18+ (Node 20+ recommended for Nuxt 4)
+- Vue 3 or Nuxt 3 / Nuxt 4
 - npm, yarn, or pnpm
 
 ## Installation
@@ -18,9 +18,10 @@ npm install vue-nuxt-permission
 
 ## First Permission Setup
 
-### Nuxt 3
+### Nuxt 3 / Nuxt 4
 
-Add the module to your `nuxt.config.ts`:
+Add the module to your `nuxt.config.ts` (file lives in the project root in
+both Nuxt 3 and Nuxt 4):
 
 ```ts
 // nuxt.config.ts
@@ -126,10 +127,13 @@ const canModify = await hasAny(["write", "edit"]);
 
 ## Your First Route Guard
 
-Protect routes based on permissions using Nuxt middleware:
+Protect routes based on permissions using Nuxt middleware. In Nuxt 4 the
+middleware file lives under `app/middleware/`; in Nuxt 3 it lives at
+`middleware/`. The file contents are identical.
 
 ```ts
-// middleware/admin.ts
+// Nuxt 3: middleware/admin.ts
+// Nuxt 4: app/middleware/admin.ts
 export default defineRouteMiddleware(async (to, from) => {
   const { can } = usePermission();
 
@@ -172,12 +176,18 @@ const { setPermissions } = usePermission();
 const login = async (credentials) => {
   const response = await fetch("/api/login", {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(credentials),
   });
+
+  if (!response.ok) {
+    throw new Error("Login failed");
+  }
+
   const { user, token } = await response.json();
 
   // ✅ This saves permissions to memory AND localStorage
-  setPermissions(user.permissions);
+  setPermissions(Array.isArray(user?.permissions) ? user.permissions : []);
   // user.permissions = ["create-users", "view-dashboard", "edit-posts", ...]
 
   localStorage.setItem("token", token);
@@ -185,7 +195,10 @@ const login = async (credentials) => {
 ```
 
 ::: warning Common Mistake
-Do NOT use `configurePermission()` directly for this. It only updates memory, not localStorage. Always use `setPermissions()` from the composable.
+Do not update only your auth token/user and forget `setPermissions()`. Your
+UI and route checks (`v-permission`, `can`, `globalGuard`) read from the
+permission store, so always sync permissions right after login and clear them
+on logout.
 :::
 
 ### Step 2: Protect Routes with globalGuard
@@ -225,9 +238,13 @@ const router = createRouter({
 router.beforeEach(async (to, from, next) => {
   globalGuard(to, from, next, {
     authRoutes: [{ path: "/login" }],
+    protectedRoutes: [
+      { path: "dashboard" },
+      { path: "users", meta: { permissions: ["manage-users"] } },
+    ],
     getAuthState: () => ({
       isAuthenticated: !!localStorage.getItem("token"),
-      permissions: [], // or get from your auth store
+      user: authStore.user, // guard reads user.permissions automatically
     }),
     loginPath: "/login",
     homePath: "/dashboard",
@@ -239,7 +256,7 @@ router.beforeEach(async (to, from, next) => {
 
 1. **Not authenticated + protected route** → redirects to `loginPath`
 2. **Authenticated + auth route (e.g. /login)** → redirects to `homePath`
-3. **Route has `checkPermission: true`** → checks `meta.permissions` against user's permissions
+3. **Route in `protectedRoutes` with `meta.permissions`** → checks required permissions
 4. **Permission denied** → tries to find an accessible route, or redirects to `loginPath`
    :::
 
@@ -276,7 +293,8 @@ const logout = () => {
 Here's a full login composable for a real project:
 
 ```ts
-// composables/useAuth.ts
+// Nuxt 3: composables/useAuth.ts
+// Nuxt 4: app/composables/useAuth.ts
 import { ref } from "vue";
 import { usePermission } from "vue-nuxt-permission";
 import { useRouter } from "vue-router";
@@ -284,7 +302,7 @@ import { useRouter } from "vue-router";
 export function useAuth() {
   const router = useRouter();
   const { setPermissions } = usePermission();
-  const user = ref(null);
+  const user = ref<{ permissions?: string[] } | null>(null);
   const isAuthenticated = ref(false);
 
   const login = async (email: string, password: string) => {
@@ -293,6 +311,10 @@ export function useAuth() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
     });
+    if (!res.ok) {
+      throw new Error("Invalid credentials");
+    }
+
     const { data } = await res.json();
 
     // Save token
@@ -303,7 +325,9 @@ export function useAuth() {
     isAuthenticated.value = true;
 
     // ✅ Save permissions (memory + localStorage under "__v_permission__")
-    setPermissions(data.user.permissions);
+    setPermissions(
+      Array.isArray(data.user?.permissions) ? data.user.permissions : [],
+    );
 
     router.push("/dashboard");
   };

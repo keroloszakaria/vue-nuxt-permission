@@ -26,6 +26,7 @@ export default defineConfig({
       {
         text: "Resources",
         items: [
+          { text: "AI Agent Integration", link: "/agent-integration" },
           { text: "Advanced", link: "/advanced" },
           { text: "FAQ", link: "/faq" },
           { text: "Migration", link: "/migration" },
@@ -58,6 +59,7 @@ export default defineConfig({
         {
           text: "Advanced",
           items: [
+            { text: "AI Agent Integration", link: "/agent-integration" },
             { text: "Advanced Usage", link: "/advanced" },
             { text: "FAQ", link: "/faq" },
             { text: "Migration Guide", link: "/migration" },

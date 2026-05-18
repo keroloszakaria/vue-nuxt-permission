@@ -164,7 +164,7 @@ export const createPermissionGuard = () => {
   return async (
     to: RouteLocationNormalized,
     from: RouteLocationNormalized,
-    next
+    next,
   ) => {
     const { can } = usePermission();
 
@@ -494,20 +494,29 @@ const handleLogin = async () => {
 
   if (!response.ok) throw new Error("Login failed");
 
-  const { user, token } = await response.json();
+  const data = await response.json();
+
+  // Support common backend shapes:
+  // { user, token } OR { data: { user, token } }
+  const user = data?.user ?? data?.data?.user;
+  const token = data?.token ?? data?.data?.token;
+  const permissions = Array.isArray(user?.permissions) ? user.permissions : [];
 
   // Store token
   localStorage.setItem("authToken", token);
 
-  // Update permissions
-  setPermissions(user.permissions);
-  permStore.updatePermissions(user.permissions);
+  // Update permissions once (store already calls setPermissions internally)
+  permStore.updatePermissions(permissions);
 
   // Redirect to dashboard
   router.push("/dashboard");
 };
 </script>
 ```
+
+> Tip: If you are not using a dedicated permission store, call
+> `setPermissions(permissions)` directly after login and `setPermissions([])`
+> on logout.
 
 ### Logout
 

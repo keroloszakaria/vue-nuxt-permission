@@ -223,6 +223,17 @@ The guard runs these checks **in order**:
 | Permission denied                                    | Find first accessible route, or redirect to `loginPath` |
 | All checks pass                                      | Allow navigation                                        |
 
+::: tip Automatic inference (v2.0.9+)
+A route's membership in `protectedRoutes` is treated as an implicit
+`requiresAuth: true`, and any `permissions` declared on the matched
+`protectedRoutes` entry are treated as an implicit `checkPermission: true`.
+
+This means you no longer have to repeat `meta.requiresAuth` and
+`meta.checkPermission` on every route — simply listing the route in
+`protectedRoutes` is enough. Explicit `meta` flags continue to work and
+still take precedence when set.
+:::
+
 #### Route Meta Options
 
 ```typescript
@@ -247,7 +258,10 @@ meta: { checkPermission: true, permissions: { permissions: ['admin', 'verified']
 ```
 
 ::: warning Important
-Both `checkPermission: true` AND `permissions` must be set in meta. If `checkPermission` is missing or false, the guard won't check permissions even if `permissions` is defined.
+If you don't use the `protectedRoutes` inference (v2.0.9+), then both
+`checkPermission: true` AND `permissions` must be set in meta. With
+`checkPermission` missing or false, the guard won't check permissions even
+if `permissions` is defined.
 :::
 
 #### GuardOptions Reference
@@ -276,15 +290,28 @@ interface AuthState {
 
 #### Permission Resolution
 
-The guard resolves permissions in this order:
+The guard resolves permissions in this order (v2.0.9+):
 
 1. `authState.permissions` (from `getAuthState()`)
-2. Global config permissions (from `configurePermission()` / `setPermissions()`)
+2. `authState.user?.permissions` (auto-fallback so you don't have to flatten the user object)
+3. Global config permissions (from `configurePermission()` / `setPermissions()`)
+
+If permissions are discovered on `authState.user` and the package's global
+state is still empty, the guard will automatically call `configurePermission`
+with them. This keeps the `v-permission` directive and `usePermission()`
+composable in sync after login — no extra wiring required.
 
 ```typescript
+// Both of these work identically with globalGuard v2.0.9+:
 getAuthState: () => ({
   isAuthenticated: true,
-  permissions: authStore.user?.permissions || [], // ← Explicitly pass permissions
+  permissions: authStore.user?.permissions || [],
+});
+
+// or simply
+getAuthState: () => ({
+  isAuthenticated: true,
+  user: authStore.user, // { permissions: [...], ... }
 });
 ```
 

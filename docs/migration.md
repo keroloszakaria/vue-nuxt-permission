@@ -1,5 +1,80 @@
 # Migration Guide
 
+## From v2.0.8 to v2.0.9
+
+v2.0.9 is a **drop-in bug-fix release** — no API changes are required. The
+sections below describe new behavior you can opt into to simplify your
+existing wiring.
+
+### `globalGuard` infers requirements from `protectedRoutes`
+
+In 2.0.8 and earlier, every protected route had to declare `requiresAuth`
+and `checkPermission` in its `meta`. In 2.0.9, listing a route inside
+`protectedRoutes` is enough — the guard treats membership as an implicit
+`requiresAuth: true`, and any `permissions` on that entry as an implicit
+`checkPermission: true`.
+
+```typescript
+// Before — explicit meta required
+const protectedRoutes = [
+  {
+    path: "users",
+    meta: {
+      requiresAuth: true,
+      checkPermission: true,
+      permissions: ["manage-users"],
+    },
+  },
+];
+
+// After (v2.0.9+) — meta flags are optional
+const protectedRoutes = [
+  { path: "users", meta: { permissions: ["manage-users"] } },
+];
+```
+
+Existing apps that already set the explicit flags continue to work
+unchanged.
+
+### `globalGuard` reads `authState.user.permissions`
+
+You can now return the raw user object from `getAuthState()` and skip the
+manual flatten:
+
+```typescript
+// Before
+getAuthState: () => ({
+  isAuthenticated: !!auth.user,
+  permissions: auth.user?.permissions || [],
+});
+
+// After (still works either way)
+getAuthState: () => ({
+  isAuthenticated: !!auth.user,
+  user: auth.user,
+});
+```
+
+The guard will also auto-sync discovered permissions into the package's
+global state, so `v-permission` and `usePermission()` reflect them
+immediately after the first navigation.
+
+### `persist: false` is honored
+
+If you passed `persist: false` to `PermissionPlugin` or
+`configurePermission()` previously expecting localStorage writes to be
+skipped, that contract is now enforced. If you relied on the previous
+"persist anyway" behavior, omit the option (it defaults to `true`).
+
+### `usePermission()` is safe at module top level
+
+The composable is now bound to a singleton reactive store, so you can
+import and call it outside of `setup()` — for example in an auth bootstrap
+module that runs before any component mounts. No code change is required
+for components that already call it inside `setup()`.
+
+---
+
 ## From v1 to v2
 
 This guide covers migration from vue-nuxt-permission v1 to v2.

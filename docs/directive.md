@@ -140,7 +140,31 @@ The wildcard `*` grants access to everything:
 
 ## Reactive Permissions
 
-Use reactive values with the directive:
+The directive automatically re-evaluates whenever the user's permissions
+change globally (e.g., after `setPermissions()`, `configurePermission()`,
+or a successful `globalGuard` resolution). You don't need to remount or
+force-update the component — elements appear and disappear in real time.
+
+```vue
+<script setup lang="ts">
+import { usePermission } from "vue-nuxt-permission";
+
+const { setPermissions } = usePermission();
+
+function grantAdmin() {
+  // Every `v-permission="'admin.access'"` element across the app
+  // becomes visible immediately — no refresh needed.
+  setPermissions(["admin.access"]);
+}
+</script>
+
+<template>
+  <button v-permission="'admin.access'">Admin only</button>
+  <button @click="grantAdmin">Grant admin</button>
+</template>
+```
+
+You can also bind the directive to a reactive value directly:
 
 ```vue
 <script setup lang="ts">

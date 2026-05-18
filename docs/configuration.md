@@ -4,11 +4,14 @@ Configure vue-nuxt-permission to match your application's permission model and a
 
 ## Global Configuration
 
-The plugin accepts configuration during installation in both Vue 3 and Nuxt 3 environments. Configuration determines how permissions are initialized, persisted, and managed globally.
+The plugin accepts configuration during installation in both Vue 3 and
+Nuxt 3 / Nuxt 4 environments. Configuration determines how permissions are
+initialized, persisted, and managed globally.
 
-### Nuxt 3
+### Nuxt 3 / Nuxt 4
 
-Add the module configuration to your `nuxt.config.ts`:
+Add the module configuration to your `nuxt.config.ts` (project root — the
+same location in both Nuxt 3 and Nuxt 4):
 
 ```ts
 // nuxt.config.ts

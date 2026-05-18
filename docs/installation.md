@@ -24,9 +24,26 @@ yarn add vue-nuxt-permission
 pnpm add vue-nuxt-permission
 ```
 
-## Setup for Nuxt 3
+## Setup for Nuxt 3 / Nuxt 4
 
-The recommended way to use vue-nuxt-permission is with Nuxt 3 as a module.
+The recommended way to use vue-nuxt-permission inside Nuxt is as a module.
+The same module works for both Nuxt 3 and Nuxt 4 — no separate package or
+adapter is needed.
+
+::: tip Nuxt 4 directory layout
+Nuxt 4 moved the application source into an `app/` directory by default
+(`srcDir: 'app/'`). Configuration files (`nuxt.config.ts`, `package.json`,
+`tsconfig.json`) stay in the project root, but the following directories
+live **under `app/`** in Nuxt 4:
+
+- `app/middleware/` (was `middleware/` in Nuxt 3)
+- `app/pages/`, `app/layouts/`, `app/components/`, `app/composables/`
+
+Examples throughout these docs use the Nuxt 3 paths (`middleware/`, `pages/`).
+If you are on Nuxt 4 with the default layout, prefix them with `app/`.
+Everything else (auto-imports, module config, `nuxt.config.ts` keys) is
+identical.
+:::
 
 ### 1. Add to nuxt.config.ts
 
@@ -146,7 +163,7 @@ The plugin automatically:
 
 - Installs the `v-permission` directive globally
 - Provides the `usePermission()` composable
-- Sets up Nuxt middleware integration (Nuxt 3 only)
+- Sets up Nuxt middleware integration (Nuxt 3 and Nuxt 4)
 - Initializes permission storage
 
 You don't need to do anything extra - just install the module.
