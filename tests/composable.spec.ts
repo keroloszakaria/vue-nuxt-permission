@@ -418,8 +418,10 @@ describe("usePermission Composable", () => {
       setPermissions(["perm1"]);
       expect(await can("perm1")).toBe(true);
 
+      // refresh() clears cache and re-hydrates from storage when global is
+      // empty. Since setPermissions persisted ["perm1"], refresh keeps it.
       refresh();
-      expect(await can("perm1")).toBe(false);
+      expect(await can("perm1")).toBe(true);
 
       setPermissions(["perm1", "perm2"]);
       expect(await can("perm1")).toBe(true);

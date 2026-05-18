@@ -1,13 +1,38 @@
-import type {
-  Router,
-  RouteLocationNormalized,
-  NavigationGuardNext,
-} from "vue-router";
+import { configurePermission, getCurrentPermissions } from "@/core/config";
 import { hasPermission } from "@/core/evaluator";
-import { getCurrentPermissions } from "@/core/config";
-import type { GuardOptions, PermissionRoute } from "@/types";
+import type { GuardOptions, PermissionRoute, PermissionValue } from "@/types";
+import type { NavigationGuardNext, RouteLocationNormalized } from "vue-router";
 
 const MAX_ROUTE_DEPTH = 50;
+
+function joinPath(base: string, segment: string): string {
+  if (!base) return segment;
+  if (segment.startsWith("/")) return segment;
+  return base.endsWith("/") ? base + segment : base + "/" + segment;
+}
+
+function findProtectedRouteMatch(
+  routes: PermissionRoute[],
+  targetPath: string,
+  basePath = "",
+  depth = 0,
+): PermissionRoute | null {
+  if (depth > MAX_ROUTE_DEPTH) return null;
+  for (const route of routes) {
+    const fullPath = joinPath(basePath, route.path);
+    if (fullPath === targetPath) return route;
+    if (route.children?.length) {
+      const child = findProtectedRouteMatch(
+        route.children,
+        targetPath,
+        fullPath,
+        depth + 1,
+      );
+      if (child) return child;
+    }
+  }
+  return null;
+}
 
 /**
  * createPermissionGuard
@@ -35,16 +60,41 @@ export const createPermissionGuard = (options: GuardOptions = {}) => {
   return async (
     to: RouteLocationNormalized,
     from: RouteLocationNormalized,
-    next: NavigationGuardNext
+    next: NavigationGuardNext,
   ) => {
     try {
       const authState = getAuthState?.() ?? { isAuthenticated: false };
       const isAuthenticated = authState.isAuthenticated;
-      const userPermissions = authState.permissions ?? getCurrentPermissions();
+
+      const userPermissions =
+        authState.permissions ??
+        authState.user?.permissions ??
+        getCurrentPermissions();
+
+      if (
+        Array.isArray(userPermissions) &&
+        userPermissions.length > 0 &&
+        getCurrentPermissions().length === 0
+      ) {
+        configurePermission(userPermissions);
+      }
 
       const isAuthRoute = authRoutes.some((r) => r.path === to.path);
-      const requiresAuth = to.meta?.requiresAuth ?? false;
-      const checkPermission = to.meta?.checkPermission ?? false;
+
+      const matchedProtected = findProtectedRouteMatch(
+        protectedRoutes,
+        to.path,
+      );
+
+      const requiresAuth =
+        (to.meta?.requiresAuth ?? false) || matchedProtected !== null;
+
+      const effectivePermissions: PermissionValue | undefined =
+        to.meta?.permissions ?? matchedProtected?.meta?.permissions;
+
+      const checkPermission =
+        (to.meta?.checkPermission ?? false) ||
+        (matchedProtected !== null && effectivePermissions !== undefined);
 
       if (!isAuthenticated && requiresAuth) {
         onDenied?.(to, from);
@@ -56,17 +106,17 @@ export const createPermissionGuard = (options: GuardOptions = {}) => {
         return next(homePath);
       }
 
-      if (checkPermission && to.meta?.permissions) {
+      if (checkPermission && effectivePermissions !== undefined) {
         const allowed = await hasPermission(
-          to.meta.permissions,
-          userPermissions
+          effectivePermissions,
+          userPermissions,
         );
         if (!allowed) {
           onDenied?.(to, from);
 
           const fallback = await findAccessibleRoute(
             protectedRoutes,
-            userPermissions
+            userPermissions,
           );
           return next(fallback || loginPath);
         }
@@ -89,7 +139,7 @@ async function findAccessibleRoute(
   routes: PermissionRoute[],
   userPermissions: string[],
   basePath = "",
-  depth = 0
+  depth = 0,
 ): Promise<string | null> {
   if (depth > MAX_ROUTE_DEPTH) {
     console.warn("[v-permission:guard] Route nesting exceeds max depth");
@@ -109,7 +159,7 @@ async function findAccessibleRoute(
         route.children,
         userPermissions,
         fullPath,
-        depth + 1
+        depth + 1,
       );
       if (child) return child;
     }

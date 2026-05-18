@@ -1,16 +1,13 @@
-import type { App } from "vue";
-import type { PluginOptions } from "@/types";
-import { vPermission } from "@/directives/v-permission";
 import {
-  configurePermission,
   clearPermissionCache,
+  configurePermission,
   getReactivePermissions,
 } from "@/core";
-import {
-  getPermissionsFromStorage,
-  savePermissionsToStorage,
-} from "@/utils/storage";
+import { vPermission } from "@/directives/v-permission";
+import type { PluginOptions } from "@/types";
 import { normalizePermissions } from "@/utils/helpers";
+import { getPermissionsFromStorage } from "@/utils/storage";
+import type { App } from "vue";
 
 export default {
   async install(app: App, options?: PluginOptions) {
@@ -30,13 +27,12 @@ export default {
     }
 
     clearPermissionCache();
+    // configurePermission also handles persistence based on the persist flag,
+    // so we forward it here instead of saving twice.
     configurePermission(permissions, {
       developmentMode: options?.developmentMode,
+      persist: options?.persist,
     });
-
-    if (options?.persist !== false) {
-      savePermissionsToStorage(permissions);
-    }
 
     // Provide reactive permissions to components and directives
     const reactivePermissions = getReactivePermissions();
