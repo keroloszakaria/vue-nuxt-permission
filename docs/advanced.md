@@ -437,6 +437,97 @@ const safeCheck = async (permission: string) => {
     {{ error }}
   </div>
 
+
   <div v-else-if="safeCheck('admin')">Admin content</div>
 </template>
 ```
+
+---
+
+## Encrypted Permissions & Decryption Hook
+
+In many enterprise or secure cloud environments, permissions are received in an encrypted format (e.g. encrypted AES ciphertext string, encoded binary payload, or nested within an encrypted JWT).
+
+`vue-nuxt-permission` includes built-in support for synchronous and asynchronous decryption hooks.
+
+### 1. Global Decryption Hook (`setDecryptHook`)
+
+Configure a global hook that runs automatically whenever raw non-array permission payloads are passed into the system:
+
+```typescript
+import { setDecryptHook, configurePermission } from "vue-nuxt-permission";
+
+// Define the global decrypt handler (supports async promises)
+setDecryptHook(async (encryptedPayload: string) => {
+  const decrypted = await authCryptoService.decrypt(encryptedPayload);
+  // Must return string[]
+  return decrypted.permissions;
+});
+```
+
+### 2. Plugin & Configuration Hook (`decrypt` / `transform`)
+
+You can also provide the decrypt hook directly during plugin installation or `configurePermission`:
+
+```typescript
+// main.ts (Vue 3)
+import { createApp } from "vue";
+import { PermissionPlugin } from "vue-nuxt-permission";
+
+const app = createApp(App);
+
+app.use(PermissionPlugin, {
+  permissions: "ENCRYPTED_AUTH_TOKEN_FROM_SERVER",
+  decrypt: async (token) => {
+    const claims = await parseSecureJwt(token);
+    return claims.scope.split(" "); // returns string[]
+  },
+  persist: true, // Persists the decrypted permissions securely in Base64 storage
+});
+```
+
+### 3. Automatic Synchronization
+
+When using `decrypt` or `setDecryptHook`:
+- `fetchPermissions` URLs that return encrypted strings are automatically decrypted.
+- Permissions passed as `Ref<string>` or reactive payloads are decrypted before being committed to state.
+- Decrypted permissions are automatically persisted (if `persist: true`) and cached.
+
+---
+
+## Dynamic Route Guard Factory (`createPermissionGuard`)
+
+`vue-nuxt-permission` provides a universal router guard generator for Vue Router and Nuxt 3/4.
+
+```typescript
+// router/guards.ts
+import { createPermissionGuard } from "vue-nuxt-permission";
+
+export const permissionGuard = createPermissionGuard({
+  loginPath: "/login",
+  homePath: "/dashboard",
+  authRoutes: ["/login", "/register", "/forgot-password"],
+  protectedRoutes: [
+    { path: "/admin", permissions: ["admin.access"] },
+    {
+      path: "/reports",
+      permissions: { mode: "or", value: ["reports.view", "admin.access"] },
+    },
+  ],
+  getAuthState: () => {
+    const token = localStorage.getItem("token");
+    const user = JSON.parse(localStorage.getItem("user") || "null");
+    return {
+      isAuthenticated: Boolean(token),
+      permissions: user?.permissions || [],
+    };
+  },
+  onDenied: (to, from) => {
+    console.warn(`[Guard] Access denied to ${to.path}`);
+  },
+  fallbackRedirect: (to, from) => {
+    return `/unauthorized?target=${encodeURIComponent(to.fullPath)}`;
+  },
+});
+```
+

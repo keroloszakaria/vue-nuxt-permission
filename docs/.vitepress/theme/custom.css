@@ -1,0 +1,63 @@
+/**
+ * VitePress Custom Theme Styling
+ * Designed for Vue Nuxt Permission
+ */
+
+:root {
+  --vp-c-brand-1: #00dc82;
+  --vp-c-brand-2: #00c76a;
+  --vp-c-brand-3: #00b05b;
+  --vp-c-brand-soft: rgba(0, 220, 130, 0.14);
+
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(135deg, #00dc82 0%, #36e4da 50%, #42b883 100%);
+  --vp-home-hero-image-filter: drop-shadow(0 0 35px rgba(0, 220, 130, 0.35));
+}
+
+.dark {
+  --vp-c-brand-1: #00dc82;
+  --vp-c-brand-2: #36e4da;
+  --vp-c-brand-3: #00c76a;
+  --vp-c-brand-soft: rgba(0, 220, 130, 0.16);
+}
+
+/* Hero Badge & Action Button Styling */
+.VPButton.brand {
+  border-color: var(--vp-c-brand-1) !important;
+  background-color: var(--vp-c-brand-1) !important;
+  color: #032014 !important;
+  font-weight: 600;
+  transition: all 0.25s ease;
+}
+
+.VPButton.brand:hover {
+  background-color: var(--vp-c-brand-2) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(0, 220, 130, 0.35);
+}
+
+.VPFeature {
+  transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+  border-radius: 12px;
+}
+
+.VPFeature:hover {
+  transform: translateY(-2px);
+  border-color: var(--vp-c-brand-1);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+}
+
+.dark .VPFeature:hover {
+  box-shadow: 0 6px 20px rgba(0, 220, 130, 0.08);
+}
+
+/* Badge styling */
+.custom-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 4px;
+  background-color: var(--vp-c-brand-soft);
+  color: var(--vp-c-brand-1);
+}
