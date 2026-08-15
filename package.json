@@ -1,6 +1,6 @@
 {
   "name": "vue-nuxt-permission",
-  "version": "2.0.10",
+  "version": "2.1.0",
   "description": "A unified permission system for Vue 3 and Nuxt 3 / Nuxt 4 with directives, guards, and async support.",
   "type": "module",
   "main": "dist/index.cjs",
@@ -12,7 +12,12 @@
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
     },
-    "./module": "./dist/module.mjs"
+    "./module": {
+      "types": "./dist/module.d.ts",
+      "import": "./dist/module.mjs",
+      "require": "./dist/module.cjs"
+    },
+    "./runtime/*": "./dist/runtime/*"
   },
   "files": [
     "dist",
@@ -71,9 +76,22 @@
   "nuxt": {
     "module": "./dist/module.mjs"
   },
+  "dependencies": {
+    "@nuxt/kit": "^3.0.0 || ^4.0.0",
+    "defu": "^6.1.4"
+  },
   "peerDependencies": {
     "nuxt": ">=3.0.0",
-    "vue": "^3.0.0"
+    "vue": "^3.0.0",
+    "vue-router": "^4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "nuxt": {
+      "optional": true
+    },
+    "vue-router": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@nuxt/kit": "^4.2.0",

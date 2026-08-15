@@ -1,4 +1,8 @@
-import { configurePermission, getCurrentPermissions } from "@/core/config";
+import {
+  configurePermission,
+  getCurrentPermissions,
+  getDecryptHook,
+} from "@/core/config";
 import { hasPermission } from "@/core/evaluator";
 import type { GuardOptions, PermissionRoute, PermissionValue } from "@/types";
 import type { NavigationGuardNext, RouteLocationNormalized } from "vue-router";
@@ -66,17 +70,32 @@ export const createPermissionGuard = (options: GuardOptions = {}) => {
       const authState = getAuthState?.() ?? { isAuthenticated: false };
       const isAuthenticated = authState.isAuthenticated;
 
-      const userPermissions =
+      const decryptFn =
+        options.decrypt ?? options.transform ?? getDecryptHook();
+
+      const rawPermissions =
         authState.permissions ??
         authState.user?.permissions ??
         getCurrentPermissions();
+
+      let userPermissions: string[] = [];
+      if (decryptFn && rawPermissions && !Array.isArray(rawPermissions)) {
+        const decrypted = await decryptFn(rawPermissions);
+        userPermissions = Array.isArray(decrypted) ? decrypted : [];
+      } else if (Array.isArray(rawPermissions)) {
+        userPermissions = rawPermissions;
+      } else {
+        userPermissions = getCurrentPermissions();
+      }
 
       if (
         Array.isArray(userPermissions) &&
         userPermissions.length > 0 &&
         getCurrentPermissions().length === 0
       ) {
-        configurePermission(userPermissions);
+        configurePermission(userPermissions, {
+          decrypt: decryptFn,
+        });
       }
 
       const isAuthRoute = authRoutes.some((r) => r.path === to.path);

@@ -1,28 +1,29 @@
 # Vue Nuxt Permission
 
-A powerful, flexible permission management plugin for Vue 3 & Nuxt 3.
+A powerful, unified permission and RBAC management library for **Vue 3**, **Nuxt 3**, and **Nuxt 4**.
 
-Provides a declarative directive (`v-permission`), route protection (`globalGuard`), permission evaluation utilities, Base64-encoded localStorage persistence, and caching.
+Provides a declarative directive (`v-permission`), advanced route guards (`createPermissionGuard`, `globalGuard`), permission evaluation utilities, payload decryption hooks, Base64-encoded localStorage persistence, and multi-tiered caching.
 
 [![GitHub](https://img.shields.io/badge/GitHub-vue--nuxt--permission-blue?style=flat&logo=github)](https://github.com/keroloszakaria/vue-nuxt-permission)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![Vue](https://img.shields.io/badge/Vue-3.x-4FC08D?style=flat&logo=vue.js)](https://vuejs.org/)
-[![Nuxt](https://img.shields.io/badge/Nuxt-3.x-00DC82?style=flat&logo=nuxt.js)](https://nuxt.com/)
+[![Nuxt](https://img.shields.io/badge/Nuxt-3.x%20%7C%204.x-00DC82?style=flat&logo=nuxt.js)](https://nuxt.com/)
 
-> Package: [npm](https://www.npmjs.com/package/vue-nuxt-permission) | Source: [GitHub](https://github.com/keroloszakaria/vue-nuxt-permission)
+> Package: [npm](https://www.npmjs.com/package/vue-nuxt-permission) | Source: [GitHub](https://github.com/keroloszakaria/vue-nuxt-permission) | Docs: [vue-nuxt-permission.surge.sh](https://vue-nuxt-permission.surge.sh)
 
 ---
 
 ## Features
 
-- **`v-permission` directive**: Declarative show/hide/remove elements based on permissions
-- **Route guards**: Built-in `globalGuard` with fallback redirection
-- **Permission utilities**: Check permissions programmatically with `hasPermission`, `hasAny`, `hasAll`
-- **Complex logic**: Supports `and`, `or`, `regex`, `startWith`, `exact` matching modes
-- **Security**: Permissions stored as Base64-encoded values in localStorage
-- **Performance**: Built-in caching reduces re-evaluation overhead
-- **Reactive**: Works with both static arrays and reactive `Ref<string[]>`
-- **TypeScript**: Full type safety and intellisense support
+- 🛡️ **`v-permission` directive**: Declarative show/hide/remove elements based on permissions with `.once` and `:show` modifiers
+- 🔐 **Encrypted Permissions & Decrypt Hook**: Built-in support for encrypted tokens, JWTs, and custom payload decrypt/transform hooks
+- 🚦 **Advanced Route Guards**: `createPermissionGuard` factory & `globalGuard` with automatic fallback redirection and user permission synchronization
+- ⚡ **Nuxt 3 & Nuxt 4 Module**: Native zero-config Nuxt module with auto-imported `usePermission()` composable and runtime plugin
+- 🔄 **Singleton Reactive Store**: Global reactive permission state that instantly updates the DOM without needing manual component re-renders
+- 🎯 **Rich Matching Modes**: Supports `exact`, `and`, `or`, `not`, `startWith`, `endWith`, and safe `regex` evaluation
+- 💾 **Storage Persistence**: Transparent Base64-encoded storage persistence across page reloads (configurable via `persist: true/false`)
+- 🚀 **High Performance Caching**: Multi-level cache layer with automatic and manual invalidation utilities
+- 📘 **First-Class TypeScript**: Full type inference, autocompletion, and comprehensive typings
 
 ---
 
@@ -467,72 +468,78 @@ definePageMeta({
 
 ---
 
-## Creating Custom Guards
+## Route Guards (`createPermissionGuard` & `globalGuard`)
 
-For advanced scenarios, create a custom guard with full control:
+### Built-in `createPermissionGuard` Factory
 
-```ts
-// guards/createGuard.ts
-import { hasPermission } from "vue-nuxt-permission";
-
-interface GuardOptions {
-  loginPath?: string;
-  homePath?: string;
-  getAuthState: () => { isAuthenticated: boolean; permissions: string[] };
-  onDenied?: (to: any, from: any) => void;
-  onAllowed?: (to: any, from: any) => void;
-}
-
-export function createCustomGuard(options: GuardOptions) {
-  return async (to: any, from: any, next: any) => {
-    const state = options.getAuthState();
-
-    // Not authenticated but route requires auth
-    if (to.meta.requiresAuth && !state.isAuthenticated) {
-      return next(options.loginPath || "/login");
-    }
-
-    // Already authenticated trying to access auth route
-    if (to.meta.isAuthRoute && state.isAuthenticated) {
-      return next(options.homePath || "/dashboard");
-    }
-
-    // Check permissions
-    if (to.meta.checkPermission && to.meta.permissions) {
-      const allowed = await hasPermission(
-        to.meta.permissions,
-        state.permissions
-      );
-      if (!allowed) {
-        options.onDenied?.(to, from);
-        return next("/unauthorized");
-      }
-      options.onAllowed?.(to, from);
-    }
-
-    return next();
-  };
-}
-```
-
-Usage:
+`vue-nuxt-permission` exports a built-in guard factory that supports route protection, authentication state resolution, permission checks, and automatic synchronization:
 
 ```ts
-import { createCustomGuard } from "@/guards/createGuard";
+import { createPermissionGuard } from "vue-nuxt-permission";
 
-const guard = createCustomGuard({
+const guard = createPermissionGuard({
   loginPath: "/login",
   homePath: "/dashboard",
+  authRoutes: ["/login", "/register"],
+  protectedRoutes: [
+    { path: "/admin", permissions: ["admin.access"] },
+    { path: "/users", permissions: { mode: "or", value: ["user.view", "admin.access"] } },
+  ],
   getAuthState: () => ({
-    isAuthenticated: !!localStorage.getItem("token"),
-    permissions: JSON.parse(localStorage.getItem("permissions") || "[]"),
+    isAuthenticated: !!localStorage.getItem("auth_token"),
+    permissions: JSON.parse(localStorage.getItem("user_permissions") || "[]"),
   }),
-  onDenied: (to) => console.warn("Access denied to:", to.path),
-  onAllowed: (to) => console.log("Access granted to:", to.path),
+  onDenied: (to, from) => {
+    console.warn(`[Guard] Access denied to ${to.path}`);
+  },
+  fallbackRedirect: "/unauthorized", // or a function: (to, from) => `/unauthorized?target=${to.path}`
 });
 
 router.beforeEach(guard);
 ```
+
+---
+
+## Encrypted Permissions & Decryption Hook
+
+In secure environments, backends often deliver permissions encrypted (e.g. AES ciphertext, encoded tokens, or nested JWT claims). `vue-nuxt-permission` provides first-class decryption and transformation hooks.
+
+### 1. Global Hook (`setDecryptHook`)
+
+```ts
+import { setDecryptHook } from "vue-nuxt-permission";
+
+// Define a global decryption hook (sync or async)
+setDecryptHook(async (encryptedPayload) => {
+  // e.g., decrypt AES payload or parse JWT
+  const decrypted = await decryptPayload(encryptedPayload);
+  return decrypted.permissions; // returns string[]
+});
+```
+
+### 2. Plugin Option (`decrypt` / `transform`)
+
+```ts
+// Vue 3 Plugin
+app.use(PermissionPlugin, {
+  permissions: "ENCRYPTED_BASE64_OR_AES_STRING",
+  decrypt: async (encrypted) => {
+    return await myAuthService.decryptPermissions(encrypted);
+  },
+});
+
+// Or dynamically during configurePermission
+import { configurePermission } from "vue-nuxt-permission";
+
+configurePermission(encryptedToken, {
+  decrypt: (raw) => decodeJwtPermissions(raw),
+  persist: true,
+});
+```
+
+When a `decrypt` hook is provided:
+- Encrypted payloads passed to `configurePermission()` or `fetchPermissions` are automatically decrypted before permission evaluation.
+- Decrypted permissions are seamlessly synchronized into the reactive store and cached.
 
 ---
 

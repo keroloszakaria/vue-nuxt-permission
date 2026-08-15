@@ -4,9 +4,10 @@ import path from "path";
 import { defineConfig } from "vite";
 import dts from "vite-plugin-dts";
 const pkg = JSON.parse(fs.readFileSync("./package.json", "utf-8"));
+const authorName = typeof pkg.author === "object" ? pkg.author?.name || "Kerolos Zakaria" : pkg.author || "Kerolos Zakaria";
 const banner = `/*! ${pkg.name} v${
   pkg.version
-} | (c) ${new Date().getFullYear()} ${pkg.author} | ${pkg.license} License */`;
+} | (c) ${new Date().getFullYear()} ${authorName} | ${pkg.license} License */`;
 
 export default defineConfig({
   plugins: [
@@ -37,6 +38,7 @@ export default defineConfig({
       entry: {
         index: path.resolve(__dirname, "src/index.ts"),
         module: path.resolve(__dirname, "src/module.ts"),
+        "runtime/plugin": path.resolve(__dirname, "src/runtime/plugin.ts"),
       },
       name: "VueNuxtPermission",
       formats: ["es", "cjs"],
@@ -44,7 +46,7 @@ export default defineConfig({
         `${entryName}.${format === "es" ? "mjs" : "cjs"}`,
     },
     rollupOptions: {
-      external: ["vue", "vue-router", "@nuxt/kit", "defu"],
+      external: ["vue", "vue-router", "@nuxt/kit", "defu", "#app", "#imports", /^#app/],
       output: {
         globals: {
           vue: "Vue",

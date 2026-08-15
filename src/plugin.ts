@@ -11,17 +11,29 @@ import type { App } from "vue";
 
 export default {
   async install(app: App, options?: PluginOptions) {
-    let permissions: string[] = [];
+    let permissions: any = [];
+    const decryptFn = options?.decrypt ?? options?.transform;
 
     if (options?.fetchPermissions) {
       try {
-        permissions = await options.fetchPermissions();
+        const fetched = await options.fetchPermissions();
+        if (decryptFn && fetched && !Array.isArray(fetched)) {
+          const decrypted = await decryptFn(fetched);
+          permissions = Array.isArray(decrypted) ? decrypted : [];
+        } else {
+          permissions = normalizePermissions(fetched);
+        }
       } catch (e) {
         console.error("[v-permission] Failed to fetch permissions:", e);
         permissions = getPermissionsFromStorage() ?? [];
       }
-    } else if (options?.permissions) {
-      permissions = normalizePermissions(options.permissions);
+    } else if (options?.permissions !== undefined) {
+      if (decryptFn && options.permissions && !Array.isArray(options.permissions)) {
+        const decrypted = await decryptFn(options.permissions);
+        permissions = Array.isArray(decrypted) ? decrypted : [];
+      } else {
+        permissions = normalizePermissions(options.permissions);
+      }
     } else {
       permissions = getPermissionsFromStorage() ?? [];
     }
@@ -32,6 +44,8 @@ export default {
     configurePermission(permissions, {
       developmentMode: options?.developmentMode,
       persist: options?.persist,
+      decrypt: options?.decrypt,
+      transform: options?.transform,
     });
 
     // Provide reactive permissions to components and directives

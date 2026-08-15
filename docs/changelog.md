@@ -29,6 +29,27 @@ Features and changes currently in development but not yet released.
 
 ---
 
+## [2.1.0]
+
+### Added & Enhanced
+
+- **Official Nuxt Module Listing & Runtime Plugin Distribution**:
+  - Emits bundled `dist/runtime/plugin.mjs` and `dist/runtime/plugin.cjs` with full `.d.ts` declaration maps.
+  - Standardized Nuxt 3 & Nuxt 4 integration with zero-config auto-imports for `usePermission()`.
+  - Added compatibility spec `modules/vue-nuxt-permission.yml` and official vector icon `icons/vue-nuxt-permission.svg`.
+- **Encrypted Permissions Decryption Hook**:
+  - `setDecryptHook()` and `getDecryptHook()` global helpers for handling encrypted tokens (AES, JWT payload, custom decoding).
+  - Plugin `decrypt` (alias `transform`) option to automatically decrypt incoming permissions from backend APIs or storage before evaluation.
+- **Route Protection (`createPermissionGuard`)**:
+  - Factory function to generate robust router guards with fallback redirects and dynamic path resolutions.
+  - Automatically syncs authenticated user permissions into the shared reactive store.
+- **Enhanced Reactivity**:
+  - Instant DOM updates for `v-permission` when permissions change in memory without forcing complete component remount.
+- **TypeScript Declarations**:
+  - Exported complete typings (`DecryptHook`, `PluginOptions`, `ConfigurePermissionOptions`, `PermissionMode`, `PermissionRoute`, `GuardOptions`, `AuthState`).
+
+---
+
 ## [2.0.9]
 
 Bug-fix release that hardens the guard, plugin, directive, and composable

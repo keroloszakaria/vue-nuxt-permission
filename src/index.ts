@@ -3,6 +3,8 @@ export {
   configurePermission,
   getCurrentPermissions,
   isDevMode,
+  getDecryptHook,
+  setDecryptHook,
 } from "@/core/config";
 export { hasPermission } from "@/core/evaluator";
 
@@ -37,8 +39,10 @@ export type {
   PermissionObject,
   PermissionsArray,
   GlobalConfig,
+  ConfigurePermissionOptions,
   PluginOptions,
   PermissionRoute,
   GuardOptions,
   AuthState,
+  DecryptHook,
 } from "@/types/index";

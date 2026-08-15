@@ -26,7 +26,12 @@ export type PermissionValue =
   | string[]
   | PermissionObject;
 
-export type PermissionsArray = string[] | Ref<string[]>;
+export type PermissionsArray = string[] | Ref<string[]> | Ref<any>;
+
+/* -------------------------------------------------
+ * Decrypt / Transform Hook
+ * ------------------------------------------------- */
+export type DecryptHook = (raw: any) => string[] | Promise<string[]>;
 
 /* -------------------------------------------------
  * Global Config
@@ -34,16 +39,29 @@ export type PermissionsArray = string[] | Ref<string[]>;
 export interface GlobalConfig {
   permissions: PermissionsArray | null;
   developmentMode: boolean;
+  decrypt?: DecryptHook;
+}
+
+/* -------------------------------------------------
+ * Configure Permission Options
+ * ------------------------------------------------- */
+export interface ConfigurePermissionOptions {
+  developmentMode?: boolean;
+  persist?: boolean;
+  decrypt?: DecryptHook;
+  transform?: DecryptHook;
 }
 
 /* -------------------------------------------------
  * Plugin Options
  * ------------------------------------------------- */
 export interface PluginOptions {
-  permissions?: PermissionsArray;
+  permissions?: PermissionsArray | any;
   developmentMode?: boolean;
-  fetchPermissions?: () => Promise<string[]>;
+  fetchPermissions?: () => Promise<string[] | any>;
   persist?: boolean;
+  decrypt?: DecryptHook;
+  transform?: DecryptHook;
 }
 
 /* -------------------------------------------------
@@ -76,6 +94,8 @@ export interface GuardOptions {
   getAuthState?: () => AuthState;
   loginPath?: string;
   homePath?: string;
+  decrypt?: DecryptHook;
+  transform?: DecryptHook;
   onDenied?: (
     to: RouteLocationNormalized,
     from: RouteLocationNormalized
@@ -91,9 +111,9 @@ export interface GuardOptions {
  * ------------------------------------------------- */
 export interface AuthState {
   isAuthenticated: boolean;
-  permissions?: string[];
+  permissions?: string[] | any;
   user?: {
-    permissions?: string[];
+    permissions?: string[] | any;
     [key: string]: any;
   };
 }

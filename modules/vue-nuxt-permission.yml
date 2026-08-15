@@ -10,8 +10,7 @@ category: Security
 type: 3rd-party
 maintainers:
   - name: Kerolos Zakaria
-    github: KerolosZakaria
+    github: keroloszakaria
 compatibility:
   nuxt: ">=3.0.0"
-  requires:
-    bridge: false
+  requires: {}

@@ -1,8 +1,8 @@
-// @ts-expect-error #app is a Nuxt internal alias only available in Nuxt context
+// @ts-ignore
 import { defineNuxtPlugin, useRuntimeConfig } from "#app";
-// @ts-expect-error #app is a Nuxt internal alias only available in Nuxt context
+// @ts-ignore
 import type { NuxtApp } from "#app";
-import PermissionPlugin from "@/plugin";
+import { PermissionPlugin } from "../index";
 
 export default defineNuxtPlugin(async (nuxtApp: NuxtApp) => {
   const cfg = useRuntimeConfig().public.permission as any;
