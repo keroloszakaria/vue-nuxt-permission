@@ -20,6 +20,11 @@ export {
 export * from "./utils/helpers";
 export * from "./utils/storage";
 export * from "./utils/debug";
+export {
+  createPermissionCrypto,
+  createPermissionDecryptor,
+} from "./crypto";
+export type { EncryptedPayload, PermissionCrypto } from "./crypto";
 
 // Plugin and directives
 export { default as PermissionPlugin } from "./plugin";
