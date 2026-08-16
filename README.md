@@ -504,7 +504,28 @@ router.beforeEach(guard);
 
 In secure environments, backends often deliver permissions encrypted (e.g. AES ciphertext, encoded tokens, or nested JWT claims). `vue-nuxt-permission` provides first-class decryption and transformation hooks.
 
-### 1. Global Hook (`setDecryptHook`)
+### 1. AES roles and permissions from login
+
+`createPermissionCrypto` handles the `{ iv, data }` AES-CBC payload returned by
+Jervis authentication APIs. `decryptAuthPayload` decrypts both `roles` and
+`permissions` by default and leaves the rest of the user object unchanged.
+
+```ts
+import {
+  configurePermission,
+  createPermissionCrypto,
+} from "vue-nuxt-permission";
+
+const crypto = createPermissionCrypto(import.meta.env.VITE_CRYPTO_SECRET_KEY);
+const user = crypto.decryptAuthPayload(loginResponse.data.user);
+
+configurePermission(user.permissions);
+```
+
+Invalid encrypted fields fail closed to an empty array. Use `crypto.decrypt()`
+and `crypto.encrypt()` when handling a single value.
+
+### 2. Global Hook (`setDecryptHook`)
 
 ```ts
 import { setDecryptHook } from "vue-nuxt-permission";
@@ -517,7 +538,7 @@ setDecryptHook(async (encryptedPayload) => {
 });
 ```
 
-### 2. Plugin Option (`decrypt` / `transform`)
+### 3. Plugin Option (`decrypt` / `transform`)
 
 ```ts
 // Vue 3 Plugin

@@ -29,6 +29,33 @@ Features and changes currently in development but not yet released.
 
 ---
 
+## [2.2.1] - 2026-08-16
+
+### Added
+
+- **Built-in AES login payload support** through `createPermissionCrypto(secret)`.
+- `decryptAuthPayload(user)` decrypts the `roles` and `permissions` fields in
+  one operation while preserving the remaining user properties.
+- `encrypt()` and `decrypt()` helpers for individual `{ iv, data }` AES-CBC
+  payloads.
+- `createPermissionDecryptor(secret)` for consumers that prefer the existing
+  plugin, guard, or `configurePermission` decrypt-hook APIs.
+- Exported `EncryptedPayload` and `PermissionCrypto` TypeScript types.
+
+### Security
+
+- Invalid or malformed encrypted auth fields fail closed to empty arrays.
+- The package treats client-side encryption as payload obfuscation, not an
+  authorization boundary. APIs must continue enforcing roles and permissions
+  server-side.
+
+### Changed
+
+- `crypto-js` is now an internal package dependency, so consuming applications
+  no longer need a separate crypto utility or direct `crypto-js` dependency.
+
+---
+
 ## [2.1.0]
 
 ### Added & Enhanced

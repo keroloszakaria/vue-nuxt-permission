@@ -450,6 +450,90 @@ In many enterprise or secure cloud environments, permissions are received in an 
 
 `vue-nuxt-permission` includes built-in support for synchronous and asynchronous decryption hooks.
 
+### Built-in AES login payload decryption
+
+Use `createPermissionCrypto` when the login response contains encrypted
+`roles` and `permissions` fields in this shape:
+
+```ts
+interface EncryptedPayload {
+  iv: string;   // Base64 AES-CBC initialization vector
+  data: string; // Base64 ciphertext
+}
+```
+
+Configure the same secret used by the API and decrypt the user before storing
+it in your authentication store:
+
+```env
+VITE_CRYPTO_SECRET_KEY=base64:your-shared-secret
+```
+
+```ts
+import {
+  configurePermission,
+  createPermissionCrypto,
+} from "vue-nuxt-permission";
+
+const permissionCrypto = createPermissionCrypto(
+  import.meta.env.VITE_CRYPTO_SECRET_KEY,
+);
+
+async function login(credentials) {
+  const response = await api.post("/login", credentials);
+  const user = permissionCrypto.decryptAuthPayload(response.data.user);
+
+  // Both values are now ready for the application.
+  authStore.user = user;
+  authStore.roles = user.roles;
+  configurePermission(user.permissions);
+}
+```
+
+`decryptAuthPayload()` preserves all other user properties. It accepts a field
+list when an API uses different encrypted keys:
+
+```ts
+const user = permissionCrypto.decryptAuthPayload(response.data.user, [
+  "roles",
+  "permissions",
+  "abilities",
+]);
+```
+
+Already-decoded arrays are left unchanged. Missing, malformed, or incorrectly
+encrypted fields become empty arrays so permission checks fail closed.
+
+For a single value, use the same instance directly:
+
+```ts
+const encrypted = permissionCrypto.encrypt(["users.view"]);
+const permissions = permissionCrypto.decrypt<string[]>(encrypted);
+```
+
+::: warning Security boundary
+`VITE_` variables are included in the browser bundle. This feature protects the
+payload format but does not replace server-side authorization. Every protected
+API must still validate the authenticated user's roles and permissions.
+:::
+
+### Built-in decrypt hook
+
+Use `createPermissionDecryptor` when only the permission list is encrypted and
+you want to keep the existing hook-based configuration:
+
+```ts
+import {
+  createPermissionDecryptor,
+  PermissionPlugin,
+} from "vue-nuxt-permission";
+
+app.use(PermissionPlugin, {
+  permissions: encryptedPermissions,
+  decrypt: createPermissionDecryptor(import.meta.env.VITE_CRYPTO_SECRET_KEY),
+});
+```
+
 ### 1. Global Decryption Hook (`setDecryptHook`)
 
 Configure a global hook that runs automatically whenever raw non-array permission payloads are passed into the system:
