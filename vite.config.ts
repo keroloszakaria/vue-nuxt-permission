@@ -46,7 +46,16 @@ export default defineConfig({
         `${entryName}.${format === "es" ? "mjs" : "cjs"}`,
     },
     rollupOptions: {
-      external: ["vue", "vue-router", "@nuxt/kit", "defu", "#app", "#imports", /^#app/],
+      external: [
+        "vue",
+        "vue-router",
+        "crypto-js",
+        "@nuxt/kit",
+        "defu",
+        "#app",
+        "#imports",
+        /^#app/,
+      ],
       output: {
         globals: {
           vue: "Vue",
