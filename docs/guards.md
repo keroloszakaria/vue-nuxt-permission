@@ -220,8 +220,17 @@ The guard runs these checks **in order**:
 | Not authenticated + protected route (`requiresAuth`) | Redirect to `loginPath`                                 |
 | Authenticated + auth route (e.g. `/login`)           | Redirect to `homePath`                                  |
 | Route has `checkPermission: true` + `permissions`    | Check user's permissions                                |
-| Permission denied                                    | Find first accessible route, or redirect to `loginPath` |
+| Permission denied                                    | Find first accessible route, or call `onNoAccess` and redirect to `deniedPath` (default `loginPath`) |
 | All checks pass                                      | Allow navigation                                        |
+
+::: tip No redirect loops (v2.3.0+)
+When an authenticated user is denied and **no** protected route is accessible,
+the guard used to send them to `loginPath`, which then bounced them back to
+`homePath` forever. The guard now lets that one redirect land on `loginPath`
+(or `deniedPath`), skips dynamic routes (`/users/:id`) and the denied route when
+picking a fallback, and always resolves non-array (encrypted) permissions to an
+array — through `decrypt` when provided.
+:::
 
 ::: tip Automatic inference (v2.0.9+)
 A route's membership in `protectedRoutes` is treated as an implicit
@@ -273,6 +282,9 @@ interface GuardOptions {
   getAuthState?: () => AuthState; // Function returning auth state
   loginPath?: string; // Redirect path for unauthenticated (default: '/login')
   homePath?: string; // Redirect path for authenticated on auth pages (default: '/')
+  deniedPath?: string; // Where authenticated users with no accessible route go (default: loginPath)
+  onNoAccess?: (to, from) => void | Promise<void>; // e.g. clear the session before redirecting
+  decrypt?: DecryptHook; // Decrypts non-array permissions from the auth state
   onDenied?: (to, from) => void; // Callback when access is denied
   onAllowed?: (to, from) => void; // Callback when access is allowed
 }

@@ -492,7 +492,9 @@ const guard = createPermissionGuard({
   onDenied: (to, from) => {
     console.warn(`[Guard] Access denied to ${to.path}`);
   },
-  fallbackRedirect: "/unauthorized", // or a function: (to, from) => `/unauthorized?target=${to.path}`
+  // Authenticated user with no accessible route at all:
+  deniedPath: "/unauthorized", // defaults to loginPath
+  onNoAccess: () => authStore.clearSession(),
 });
 
 router.beforeEach(guard);
@@ -718,6 +720,14 @@ Before opening an issue:
 For more detailed documentation, see the [complete guide](./docs).
 
 ---
+
+### v2.3.0
+
+- Fix infinite redirect loop between `loginPath` and `homePath` when an authenticated user has no accessible route (`globalGuard` and `createPermissionGuard`)
+- Add `deniedPath` and `onNoAccess` guard options
+- `globalGuard` now supports `decrypt` / `transform` and never evaluates non-array (encrypted) permissions
+- Fallback route search skips dynamic routes and the denied route itself
+- Errors while already on `loginPath` no longer redirect to itself
 
 ### v2.0.0
 

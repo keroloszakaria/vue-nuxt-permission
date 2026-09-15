@@ -144,6 +144,35 @@ Path to redirect authenticated users away from auth routes.
 homePath: "/dashboard";
 ```
 
+### `deniedPath`
+
+Where an authenticated user goes when a route is denied and no other protected
+route is accessible. The guard lets this redirect through even when it is an
+auth route, so it never loops back to `homePath`.
+
+**Type**: `string`
+
+**Default**: `loginPath`
+
+**Example**:
+
+```ts
+deniedPath: "/403";
+```
+
+### `onNoAccess`
+
+Called (and awaited) right before redirecting an authenticated user who has no
+accessible route. Useful for clearing the session.
+
+**Type**: `(to: RouteLocationNormalized, from: RouteLocationNormalized) => void | Promise<void>`
+
+**Example**:
+
+```ts
+onNoAccess: () => authStore.clearSession();
+```
+
 ### `onDenied`
 
 Callback when access is denied.
@@ -459,6 +488,13 @@ interface GuardOptions {
   getAuthState?: () => AuthState;
   loginPath?: string;
   homePath?: string;
+  deniedPath?: string;
+  onNoAccess?: (
+    to: RouteLocationNormalized,
+    from: RouteLocationNormalized
+  ) => void | Promise<void>;
+  decrypt?: DecryptHook;
+  transform?: DecryptHook;
   onDenied?: (
     to: RouteLocationNormalized,
     from: RouteLocationNormalized
