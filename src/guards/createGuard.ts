@@ -6,8 +6,15 @@ import {
 import { hasPermission } from "@/core/evaluator";
 import type { GuardOptions, PermissionRoute, PermissionValue } from "@/types";
 import type { NavigationGuardNext, RouteLocationNormalized } from "vue-router";
+import {
+  MAX_ROUTE_DEPTH,
+  createRedirectLoopBreaker,
+  findAccessibleRoute,
+  redirectWithoutAccess,
+  resolveUserPermissions,
+} from "./shared";
 
-const MAX_ROUTE_DEPTH = 50;
+const LOG_PREFIX = "[v-permission:guard]";
 
 function joinPath(base: string, segment: string): string {
   if (!base) return segment;
@@ -57,15 +64,21 @@ export const createPermissionGuard = (options: GuardOptions = {}) => {
     getAuthState,
     loginPath = "/login",
     homePath = "/",
+    deniedPath,
+    onNoAccess,
     onDenied,
     onAllowed,
   } = options;
+
+  const loopBreaker = createRedirectLoopBreaker();
 
   return async (
     to: RouteLocationNormalized,
     from: RouteLocationNormalized,
     next: NavigationGuardNext,
   ) => {
+    const arrivedFromDenial = loopBreaker.consume(to);
+
     try {
       const authState = getAuthState?.() ?? { isAuthenticated: false };
       const isAuthenticated = authState.isAuthenticated;
@@ -73,23 +86,12 @@ export const createPermissionGuard = (options: GuardOptions = {}) => {
       const decryptFn =
         options.decrypt ?? options.transform ?? getDecryptHook();
 
-      const rawPermissions =
-        authState.permissions ??
-        authState.user?.permissions ??
-        getCurrentPermissions();
-
-      let userPermissions: string[] = [];
-      if (decryptFn && rawPermissions && !Array.isArray(rawPermissions)) {
-        const decrypted = await decryptFn(rawPermissions);
-        userPermissions = Array.isArray(decrypted) ? decrypted : [];
-      } else if (Array.isArray(rawPermissions)) {
-        userPermissions = rawPermissions;
-      } else {
-        userPermissions = getCurrentPermissions();
-      }
+      const userPermissions = await resolveUserPermissions(
+        authState,
+        decryptFn,
+      );
 
       if (
-        Array.isArray(userPermissions) &&
         userPermissions.length > 0 &&
         getCurrentPermissions().length === 0
       ) {
@@ -122,6 +124,7 @@ export const createPermissionGuard = (options: GuardOptions = {}) => {
 
       if (isAuthenticated && isAuthRoute) {
         onAllowed?.(to, from);
+        if (arrivedFromDenial) return next();
         return next(homePath);
       }
 
@@ -136,52 +139,26 @@ export const createPermissionGuard = (options: GuardOptions = {}) => {
           const fallback = await findAccessibleRoute(
             protectedRoutes,
             userPermissions,
+            { excludePath: to.path, logPrefix: LOG_PREFIX },
           );
-          return next(fallback || loginPath);
+          if (fallback) return next(fallback);
+          return redirectWithoutAccess(to, from, next, {
+            loginPath,
+            deniedPath,
+            onNoAccess,
+            isAuthenticated,
+            breaker: loopBreaker,
+          });
         }
       }
 
       onAllowed?.(to, from);
       next();
     } catch (e) {
-      console.error("[v-permission:guard] Unexpected error:", e);
+      console.error(`${LOG_PREFIX} Unexpected error:`, e);
+      if (to.path === loginPath) return next();
+      loopBreaker.mark(loginPath);
       next(loginPath);
     }
   };
 };
-
-/**
- * Recursively finds a route that the user has permission to access.
- * Includes depth protection against circular/deeply nested routes.
- */
-async function findAccessibleRoute(
-  routes: PermissionRoute[],
-  userPermissions: string[],
-  basePath = "",
-  depth = 0,
-): Promise<string | null> {
-  if (depth > MAX_ROUTE_DEPTH) {
-    console.warn("[v-permission:guard] Route nesting exceeds max depth");
-    return null;
-  }
-
-  for (const route of routes) {
-    const fullPath = basePath + route.path;
-    const requiredPermissions = route.meta?.permissions ?? "*";
-
-    if (await hasPermission(requiredPermissions, userPermissions)) {
-      return fullPath;
-    }
-
-    if (route.children?.length) {
-      const child = await findAccessibleRoute(
-        route.children,
-        userPermissions,
-        fullPath,
-        depth + 1,
-      );
-      if (child) return child;
-    }
-  }
-  return null;
-}

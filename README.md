@@ -492,7 +492,9 @@ const guard = createPermissionGuard({
   onDenied: (to, from) => {
     console.warn(`[Guard] Access denied to ${to.path}`);
   },
-  fallbackRedirect: "/unauthorized", // or a function: (to, from) => `/unauthorized?target=${to.path}`
+  // Authenticated user with no accessible route at all:
+  deniedPath: "/unauthorized", // defaults to loginPath
+  onNoAccess: () => authStore.clearSession(),
 });
 
 router.beforeEach(guard);
@@ -504,7 +506,28 @@ router.beforeEach(guard);
 
 In secure environments, backends often deliver permissions encrypted (e.g. AES ciphertext, encoded tokens, or nested JWT claims). `vue-nuxt-permission` provides first-class decryption and transformation hooks.
 
-### 1. Global Hook (`setDecryptHook`)
+### 1. AES roles and permissions from login
+
+`createPermissionCrypto` handles the `{ iv, data }` AES-CBC payload returned by
+Jervis authentication APIs. `decryptAuthPayload` decrypts both `roles` and
+`permissions` by default and leaves the rest of the user object unchanged.
+
+```ts
+import {
+  configurePermission,
+  createPermissionCrypto,
+} from "vue-nuxt-permission";
+
+const crypto = createPermissionCrypto(import.meta.env.VITE_CRYPTO_SECRET_KEY);
+const user = crypto.decryptAuthPayload(loginResponse.data.user);
+
+configurePermission(user.permissions);
+```
+
+Invalid encrypted fields fail closed to an empty array. Use `crypto.decrypt()`
+and `crypto.encrypt()` when handling a single value.
+
+### 2. Global Hook (`setDecryptHook`)
 
 ```ts
 import { setDecryptHook } from "vue-nuxt-permission";
@@ -517,7 +540,7 @@ setDecryptHook(async (encryptedPayload) => {
 });
 ```
 
-### 2. Plugin Option (`decrypt` / `transform`)
+### 3. Plugin Option (`decrypt` / `transform`)
 
 ```ts
 // Vue 3 Plugin
@@ -697,6 +720,14 @@ Before opening an issue:
 For more detailed documentation, see the [complete guide](./docs).
 
 ---
+
+### v2.3.0
+
+- Fix infinite redirect loop between `loginPath` and `homePath` when an authenticated user has no accessible route (`globalGuard` and `createPermissionGuard`)
+- Add `deniedPath` and `onNoAccess` guard options
+- `globalGuard` now supports `decrypt` / `transform` and never evaluates non-array (encrypted) permissions
+- Fallback route search skips dynamic routes and the denied route itself
+- Errors while already on `loginPath` no longer redirect to itself
 
 ### v2.0.0
 
