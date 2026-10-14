@@ -32,9 +32,14 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
       - name: Install isolated Nuxt fixture dependencies
-        run: npm install --prefix examples/nuxt-smoke --package-lock=false "nuxt@^${{ matrix.nuxt }}"
+        working-directory: examples/nuxt-smoke
+        run: pnpm add "nuxt@^${{ matrix.nuxt }}"
       - name: Build Nuxt integration fixture
-        run: npm --prefix examples/nuxt-smoke run build
+        working-directory: examples/nuxt-smoke
+        run: pnpm run build
       - name: Validate per-request SSR isolation
         run: node scripts/check-nuxt-ssr.mjs
