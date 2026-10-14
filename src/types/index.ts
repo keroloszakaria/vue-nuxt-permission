@@ -1,4 +1,5 @@
 import type { Ref } from "vue";
+import type { PermissionScope } from "../core/scope";
 import type { RouteLocationNormalized } from "vue-router";
 
 /* -------------------------------------------------
@@ -89,6 +90,11 @@ export interface PermissionRoute {
  * Guard Options
  * ------------------------------------------------- */
 export interface GuardOptions {
+  /**
+   * Explicit application/request-local permissions. Required when guards
+   * run in Nuxt SSR; avoids reading a process-global permission snapshot.
+   */
+  permissionScope?: PermissionScope;
   authRoutes?: Array<{ path: string }>;
   protectedRoutes?: PermissionRoute[];
   getAuthState?: () => AuthState;
