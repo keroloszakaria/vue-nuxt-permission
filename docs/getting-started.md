@@ -41,7 +41,7 @@ Install the plugin in your `main.ts`:
 ```ts
 // main.ts
 import { createApp } from "vue";
-import PermissionPlugin from "vue-nuxt-permission";
+import { PermissionPlugin } from "vue-nuxt-permission";
 import App from "./App.vue";
 
 const app = createApp(App);
