@@ -1,9 +1,33 @@
-import { configurePermission, getCurrentPermissions } from "@/core/config";
+import {
+  configurePermission,
+  getCurrentPermissions,
+  getDecryptHook,
+} from "@/core/config";
 import { hasPermission } from "@/core/evaluator";
 import type { GuardOptions, PermissionRoute, PermissionValue } from "@/types";
 import type { NavigationGuardNext, RouteLocationNormalized } from "vue-router";
+import {
+  MAX_ROUTE_DEPTH,
+  createRedirectLoopBreaker,
+  findAccessibleRoute,
+  redirectWithoutAccess,
+  resolveUserPermissions,
+} from "./shared";
 
-const MAX_ROUTE_DEPTH = 50;
+const LOG_PREFIX = "[v-permission:globalGuard]";
+
+const defaultLoopBreaker = createRedirectLoopBreaker();
+const scopedLoopBreakers = new WeakMap<object, ReturnType<typeof createRedirectLoopBreaker>>();
+
+function getLoopBreaker(scope: object | undefined) {
+  if (!scope) return defaultLoopBreaker;
+  let breaker = scopedLoopBreakers.get(scope);
+  if (!breaker) {
+    breaker = createRedirectLoopBreaker();
+    scopedLoopBreakers.set(scope, breaker);
+  }
+  return breaker;
+}
 
 /**
  * Find a matching node in protectedRoutes for the given target path.
@@ -59,33 +83,34 @@ export const globalGuard = async (
     getAuthState,
     loginPath = "/login",
     homePath = "/",
+    deniedPath,
+    onNoAccess,
     onDenied,
     onAllowed,
   } = options;
 
+  const scope = options.permissionScope;
+  const breaker = getLoopBreaker(scope);
+  const arrivedFromDenial = breaker.consume(to);
+
   try {
     const authState = getAuthState?.() ?? { isAuthenticated: false };
-    const scope = options.permissionScope;
     const isAuthenticated = authState.isAuthenticated;
+    const decryptFn =
+      options.decrypt ?? options.transform ??
+      (scope ? undefined : getDecryptHook());
 
-    // Resolve user permissions with full fallback chain.
-    // Many consumer projects expose them via authState.user.permissions and
-    // never call setPermissions/configurePermission explicitly.
     const authPermissions =
       authState.permissions ?? authState.user?.permissions;
-    const candidate = authPermissions ?? scope?.permissions.value ?? getCurrentPermissions();
-    // Malformed data must never be interpreted as a grant.
-    const userPermissions =
-      (!scope || isAuthenticated) &&
-      Array.isArray(candidate) &&
-      candidate.every((p) => typeof p === "string")
-        ? candidate
-        : [];
+    let userPermissions = await resolveUserPermissions(
+      authState,
+      decryptFn,
+      scope?.permissions.value,
+    );
 
-    // If we discovered permissions on the auth payload that the package
-    // didn't know about yet, sync them so the directive/composable see them.
     if (scope) {
       if (!isAuthenticated) {
+        userPermissions = [];
         scope.setPermissions([]);
       } else if (authPermissions !== undefined) {
         scope.setPermissions(userPermissions);
@@ -120,6 +145,9 @@ export const globalGuard = async (
 
     if (isAuthenticated && isAuthRoute) {
       onAllowed?.(to, from);
+      // The guard itself just sent this user here because they have no
+      // accessible route; bouncing them to homePath would loop forever.
+      if (arrivedFromDenial) return next();
       return next(homePath);
     }
 
@@ -133,53 +161,27 @@ export const globalGuard = async (
         const fallback = await findAccessibleRoute(
           protectedRoutes,
           userPermissions,
+          { excludePath: to.path, logPrefix: LOG_PREFIX },
         );
-        return next(fallback || loginPath);
+        if (fallback) return next(fallback);
+        return redirectWithoutAccess(to, from, next, {
+          loginPath,
+          deniedPath,
+          onNoAccess,
+          isAuthenticated,
+          breaker,
+        });
       }
     }
 
     onAllowed?.(to, from);
     next();
   } catch (e) {
-    console.error("[v-permission:globalGuard] Unexpected error:", e);
+    console.error(`${LOG_PREFIX} Unexpected error:`, e);
+    if (to.path === loginPath) return next();
+    breaker.mark(loginPath);
     next(loginPath);
   }
 };
-
-/**
- * Helper to find the first accessible route from protectedRoutes.
- * Includes depth protection against circular/deeply nested routes.
- */
-async function findAccessibleRoute(
-  routes: PermissionRoute[],
-  userPermissions: string[],
-  basePath = "",
-  depth = 0,
-): Promise<string | null> {
-  if (depth > MAX_ROUTE_DEPTH) {
-    console.warn("[v-permission:globalGuard] Route nesting exceeds max depth");
-    return null;
-  }
-
-  for (const route of routes) {
-    const fullPath = basePath + route.path;
-    const requiredPermissions = route.meta?.permissions ?? "*";
-
-    if (await hasPermission(requiredPermissions, userPermissions)) {
-      return fullPath;
-    }
-
-    if (route.children?.length) {
-      const child = await findAccessibleRoute(
-        route.children,
-        userPermissions,
-        fullPath,
-        depth + 1,
-      );
-      if (child) return child;
-    }
-  }
-  return null;
-}
 
 export default globalGuard;

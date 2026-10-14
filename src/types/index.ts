@@ -90,16 +90,26 @@ export interface PermissionRoute {
  * Guard Options
  * ------------------------------------------------- */
 export interface GuardOptions {
-  /**
-   * Explicit application/request-local permissions. Required when guards
-   * run in Nuxt SSR; avoids reading a process-global permission snapshot.
-   */
+  /** Request-local permission state; required for Nuxt SSR guard usage. */
   permissionScope?: PermissionScope;
   authRoutes?: Array<{ path: string }>;
   protectedRoutes?: PermissionRoute[];
   getAuthState?: () => AuthState;
   loginPath?: string;
   homePath?: string;
+  /**
+   * Where an authenticated user goes when a route is denied and no other
+   * protected route is accessible (e.g. "/403"). Defaults to loginPath.
+   */
+  deniedPath?: string;
+  /**
+   * Called when an authenticated user is denied and has no accessible
+   * fallback route — a good place to clear the session or show a message.
+   */
+  onNoAccess?: (
+    to: RouteLocationNormalized,
+    from: RouteLocationNormalized
+  ) => void | Promise<void>;
   decrypt?: DecryptHook;
   transform?: DecryptHook;
   onDenied?: (
