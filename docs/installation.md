@@ -105,7 +105,7 @@ For standalone Vue 3 applications (without Nuxt).
 ```ts
 // main.ts
 import { createApp } from "vue";
-import PermissionPlugin from "vue-nuxt-permission";
+import { PermissionPlugin } from "vue-nuxt-permission";
 import App from "./App.vue";
 
 const app = createApp(App);
