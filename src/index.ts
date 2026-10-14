@@ -23,7 +23,9 @@ export * from "./utils/debug";
 
 // Plugin and directives
 export { default as PermissionPlugin } from "./plugin";
-export { vPermission } from "./directives/v-permission";
+export { vPermission, createPermissionDirective } from "./directives/v-permission";
+export { createPermissionScope, permissionScopeKey } from "./core/scope";
+export type { PermissionScope } from "./core/scope";
 
 // Guards
 export { globalGuard } from "./guards/globalGuard";
