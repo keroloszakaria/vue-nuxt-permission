@@ -47,6 +47,16 @@ export default defineNuxtModule<ModuleOptions>({
       );
     }
 
+    if (
+      options.fetchPermissions &&
+      (!options.fetchPermissions.startsWith("/") ||
+        options.fetchPermissions.startsWith("//"))
+    ) {
+      throw new TypeError(
+        "[vue-nuxt-permission] Nuxt fetchPermissions must be a same-origin path starting with /",
+      );
+    }
+
     const resolver = createResolver(import.meta.url);
 
     // Register runtime plugin
