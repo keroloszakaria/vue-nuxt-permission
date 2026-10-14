@@ -18,6 +18,9 @@ jobs:
         run: |
           echo "SOURCE_VERSION=$(node -p 'require("./package.json").version')"
           echo "NPM_LATEST_VERSION=$(npm view vue-nuxt-permission version)"
+          echo "NPM_LATEST_GIT_HEAD=$(npm view vue-nuxt-permission@latest gitHead --json)"
+          echo "Published package dependency metadata:"
+          npm view vue-nuxt-permission@latest dependencies peerDependencies --json
       - run: npm run verify
       - run: npm run docs:build
 
