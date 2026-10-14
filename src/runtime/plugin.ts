@@ -1,6 +1,10 @@
 // @ts-ignore Nuxt provides this virtual module at runtime.
 import { defineNuxtPlugin, useRequestFetch, useRuntimeConfig, useState } from "#app";
-import { createPermissionScope, permissionScopeKey } from "../core/scope";
+import {
+  createPermissionScope,
+  parseFetchedPermissions,
+  permissionScopeKey,
+} from "../core/scope";
 import { createPermissionDirective } from "../directives/v-permission";
 
 interface RuntimePermissionConfig {
@@ -38,20 +42,7 @@ export default defineNuxtPlugin(async (nuxtApp) => {
   const requestFetch = useRequestFetch();
   try {
     const payload = (await requestFetch(cfg.fetchPermissions)) as unknown;
-    const permissions =
-      Array.isArray(payload)
-        ? payload
-        : payload && typeof payload === "object" && "permissions" in payload
-          ? (payload as { permissions: unknown }).permissions
-          : null;
-    if (
-      !Array.isArray(permissions) ||
-      !permissions.every((permission) => typeof permission === "string")
-    ) {
-      throw new TypeError(
-        "[vue-nuxt-permission] fetchPermissions must return string[] or { permissions: string[] }",
-      );
-    }
+    const permissions = parseFetchedPermissions(payload);
     scope.setPermissions(permissions);
   } catch (error) {
     // Never restore unverified cached permissions after a failed request.
