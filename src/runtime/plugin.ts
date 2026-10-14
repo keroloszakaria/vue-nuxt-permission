@@ -6,6 +6,8 @@ import {
   permissionScopeKey,
 } from "../core/scope";
 import { createPermissionDirective } from "../directives/v-permission";
+// @ts-ignore Nuxt provides this virtual module at runtime.
+import type { NuxtApp } from "#app";
 
 interface RuntimePermissionConfig {
   permissions?: string[];
@@ -17,7 +19,7 @@ interface RuntimePermissionConfig {
  * One scope per Nuxt app/request. The Nuxt useState ref is request-local on
  * the server and serialized to the client for hydration.
  */
-export default defineNuxtPlugin(async (nuxtApp) => {
+export default defineNuxtPlugin(async (nuxtApp: NuxtApp) => {
   const cfg = (useRuntimeConfig().public.permission ?? {}) as RuntimePermissionConfig;
   const initial = Array.isArray(cfg.permissions) ? cfg.permissions : [];
   const requestState = useState<string[]>(
