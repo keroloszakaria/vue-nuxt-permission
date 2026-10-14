@@ -147,3 +147,78 @@ describe("Vue async plugin bootstrap", () => {
     });
   });
 });
+
+describe("SSR scoped route guards", () => {
+  const makeRoute = (path: string, permissions?: string) => ({
+    path,
+    fullPath: path,
+    name: path,
+    matched: [],
+    params: {},
+    query: {},
+    hash: "",
+    meta: permissions ? { checkPermission: true, permissions } : {},
+    redirectedFrom: undefined,
+  });
+
+  it("createPermissionGuard denies a guest even if legacy global state grants admin", async () => {
+    const { createPermissionGuard } = await import("../src/guards/createGuard");
+    const scope = createPermissionScope(["user.read"], { persist: false });
+    configurePermission(["admin.read"], { persist: false });
+    const next = vi.fn();
+    await createPermissionGuard({
+      permissionScope: scope,
+      getAuthState: () => ({ isAuthenticated: true }),
+      loginPath: "/login",
+    })(
+      makeRoute("/admin", "admin.read") as any,
+      makeRoute("/") as any,
+      next,
+    );
+    expect(next).toHaveBeenCalledWith("/login");
+    expect(scope.permissions.value).toEqual(["user.read"]);
+  });
+
+  it("globalGuard does not copy other user permissions into a scoped request", async () => {
+    const { globalGuard } = await import("../src/guards/globalGuard");
+    const alice = createPermissionScope(["team.admin"], { persist: false });
+    const bob = createPermissionScope(["team.read"], { persist: false });
+    const check = async (permissionScope: typeof alice) => {
+      const next = vi.fn();
+      await globalGuard(
+        makeRoute("/dashboard", "team.admin") as any,
+        makeRoute("/") as any,
+        next,
+        {
+          permissionScope,
+          getAuthState: () => ({ isAuthenticated: true }),
+          loginPath: "/login",
+        },
+      );
+      return next;
+    };
+    const [aliceNext, bobNext] = await Promise.all([check(alice), check(bob)]);
+    expect(aliceNext).toHaveBeenCalledWith();
+    expect(bobNext).toHaveBeenCalledWith("/login");
+    expect(alice.permissions.value).toEqual(["team.admin"]);
+    expect(bob.permissions.value).toEqual(["team.read"]);
+  });
+
+  it("rejects malformed per-request grants instead of using global permissions", async () => {
+    const { globalGuard } = await import("../src/guards/globalGuard");
+    const scope = createPermissionScope(["old.admin"], { persist: false });
+    const next = vi.fn();
+    await globalGuard(
+      makeRoute("/dashboard", "old.admin") as any,
+      makeRoute("/") as any,
+      next,
+      {
+        permissionScope: scope,
+        getAuthState: () => ({ isAuthenticated: true, permissions: "old.admin" as any }),
+        loginPath: "/login",
+      },
+    );
+    expect(next).toHaveBeenCalledWith("/login");
+    expect(scope.permissions.value).toEqual([]);
+  });
+});
