@@ -68,28 +68,37 @@ export const createPermissionGuard = (options: GuardOptions = {}) => {
   ) => {
     try {
       const authState = getAuthState?.() ?? { isAuthenticated: false };
+      const scope = options.permissionScope;
+      const fallbackPermissions = scope?.permissions.value ?? getCurrentPermissions();
       const isAuthenticated = authState.isAuthenticated;
 
       const decryptFn =
-        options.decrypt ?? options.transform ?? getDecryptHook();
+        options.decrypt ?? options.transform ??
+        (scope ? undefined : getDecryptHook());
 
-      const rawPermissions =
-        authState.permissions ??
-        authState.user?.permissions ??
-        getCurrentPermissions();
+      const authPermissions =
+        authState.permissions ?? authState.user?.permissions;
+      const rawPermissions = authPermissions ?? fallbackPermissions;
 
       let userPermissions: string[] = [];
       if (decryptFn && rawPermissions && !Array.isArray(rawPermissions)) {
         const decrypted = await decryptFn(rawPermissions);
         userPermissions = Array.isArray(decrypted) ? decrypted : [];
-      } else if (Array.isArray(rawPermissions)) {
+      } else if (
+        Array.isArray(rawPermissions) &&
+        rawPermissions.every((p) => typeof p === "string")
+      ) {
         userPermissions = rawPermissions;
-      } else {
+      } else if (!scope) {
+        // Legacy browser compatibility. A scoped guard must fail closed.
         userPermissions = getCurrentPermissions();
       }
 
-      if (
-        Array.isArray(userPermissions) &&
+      if (scope) {
+        if (authPermissions !== undefined) {
+          scope.setPermissions(userPermissions);
+        }
+      } else if (
         userPermissions.length > 0 &&
         getCurrentPermissions().length === 0
       ) {
