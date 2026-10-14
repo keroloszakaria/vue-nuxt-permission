@@ -1,6 +1,6 @@
 export default defineNuxtConfig({
   srcDir: ".",
-  modules: ["../../dist/module.mjs"],
+  modules: ["vue-nuxt-permission"],
   permission: {
     fetchPermissions: "/api/user/permissions",
     persist: false,
