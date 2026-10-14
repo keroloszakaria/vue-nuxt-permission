@@ -62,7 +62,7 @@ Modern applications often struggle with permission and authorization:
 ```ts
 // main.ts
 import { createApp } from "vue";
-import PermissionPlugin from "vue-nuxt-permission";
+import { PermissionPlugin } from "vue-nuxt-permission";
 
 const app = createApp(App);
 app.use(PermissionPlugin, {
