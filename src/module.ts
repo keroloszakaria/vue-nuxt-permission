@@ -67,6 +67,10 @@ export default defineNuxtModule<ModuleOptions>({
       name: "usePermission",
       from: resolver.resolve("./runtime/usePermission.mjs"),
     });
+    addImports({
+      name: "usePermissionScope",
+      from: resolver.resolve("./runtime/usePermission.mjs"),
+    });
 
     // Expose options to runtime via runtimeConfig (merge, don't overwrite)
     nuxt.options.runtimeConfig.public.permission = defu(
