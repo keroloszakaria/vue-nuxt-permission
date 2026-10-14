@@ -149,6 +149,23 @@ describe("Vue async plugin bootstrap", () => {
 });
 
 describe("SSR scoped route guards", () => {
+  it("clears scoped permissions on logout guard execution", async () => {
+    const { createPermissionGuard } = await import("../src/guards/createGuard");
+    const scope = createPermissionScope(["admin.read"], { persist: false });
+    const next = vi.fn();
+    const guard = createPermissionGuard({
+      permissionScope: scope,
+      getAuthState: () => ({ isAuthenticated: false }),
+    });
+    await guard(
+      { path: "/public", meta: {} } as any,
+      { path: "/" } as any,
+      next,
+    );
+    expect(scope.permissions.value).toEqual([]);
+    expect(next).toHaveBeenCalledWith();
+  });
+
   const makeRoute = (path: string, permissions?: string) => ({
     path,
     fullPath: path,
