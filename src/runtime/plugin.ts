@@ -26,6 +26,11 @@ export default defineNuxtPlugin(async (nuxtApp: NuxtApp) => {
     "vue-nuxt-permission:permissions",
     () => [...initial],
   );
+  // Serialized with the SSR payload: do not fetch a second time on hydration.
+  const loaded = useState<boolean>(
+    "vue-nuxt-permission:loaded",
+    () => false,
+  );
   const scope = createPermissionScope(initial, {
     state: requestState,
     persist: cfg.persist !== false,
@@ -37,6 +42,9 @@ export default defineNuxtPlugin(async (nuxtApp: NuxtApp) => {
   nuxtApp.provide("permissionScope", scope);
 
   if (!cfg.fetchPermissions) return;
+  // The server already resolved this request and serialized its permissions.
+  // Re-fetch only for client-only rendering where no SSR payload exists.
+  if (import.meta.client && loaded.value) return;
   // Public runtime config may be overridden; prevent SSR credential forwarding
   // to protocol-relative or third-party URLs even if build validation was skipped.
   if (
@@ -45,6 +53,7 @@ export default defineNuxtPlugin(async (nuxtApp: NuxtApp) => {
     cfg.fetchPermissions.startsWith("//")
   ) {
     scope.setPermissions([]);
+    loaded.value = true;
     console.error(
       "[vue-nuxt-permission] fetchPermissions must be a same-origin path",
     );
@@ -63,5 +72,7 @@ export default defineNuxtPlugin(async (nuxtApp: NuxtApp) => {
     // Never restore unverified cached permissions after a failed request.
     scope.setPermissions([]);
     console.error("[vue-nuxt-permission] Failed to fetch permissions:", error);
+  } finally {
+    loaded.value = true;
   }
 });
