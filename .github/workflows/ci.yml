@@ -32,9 +32,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
-      - name: Install Nuxt for compatibility matrix
-        run: npm install --no-save --package-lock=false "nuxt@^${{ matrix.nuxt }}"
+      - name: Install isolated Nuxt fixture dependencies
+        run: npm install --prefix examples/nuxt-smoke --package-lock=false "nuxt@^${{ matrix.nuxt }}"
       - name: Build Nuxt integration fixture
-        run: npx nuxt build examples/nuxt-smoke
+        run: npm --prefix examples/nuxt-smoke run build
       - name: Validate per-request SSR isolation
         run: node scripts/check-nuxt-ssr.mjs
