@@ -6,6 +6,7 @@ import {
   permissionScopeKey,
 } from "../core/scope";
 import { createPermissionDirective } from "../directives/v-permission";
+import { isSafePermissionEndpoint } from "../utils/permissionEndpoint";
 // @ts-ignore Nuxt provides this virtual module at runtime.
 import type { NuxtApp } from "#app";
 
@@ -47,11 +48,7 @@ export default defineNuxtPlugin(async (nuxtApp: NuxtApp) => {
   if (import.meta.client && loaded.value) return;
   // Public runtime config may be overridden; prevent SSR credential forwarding
   // to protocol-relative or third-party URLs even if build validation was skipped.
-  if (
-    typeof cfg.fetchPermissions !== "string" ||
-    !cfg.fetchPermissions.startsWith("/") ||
-    cfg.fetchPermissions.startsWith("//")
-  ) {
+  if (!isSafePermissionEndpoint(cfg.fetchPermissions)) {
     scope.setPermissions([]);
     loaded.value = true;
     console.error(
