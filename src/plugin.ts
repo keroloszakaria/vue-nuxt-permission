@@ -11,10 +11,16 @@ import type { App } from "vue";
 
 export default {
   async install(app: App, options?: PluginOptions) {
+    // Vue does not await async install(). Make directives available before
+    // an asynchronous permissions endpoint can delay initialization.
+    app.provide("__v_permission_reactive__", getReactivePermissions());
+    app.directive("permission", vPermission);
     let permissions: any = [];
     const decryptFn = options?.decrypt ?? options?.transform;
 
     if (options?.fetchPermissions) {
+      // No stale permissions may be used while loading for a new app.
+      configurePermission([], { persist: false });
       try {
         const fetched = await options.fetchPermissions();
         if (decryptFn && fetched && !Array.isArray(fetched)) {
@@ -48,10 +54,5 @@ export default {
       transform: options?.transform,
     });
 
-    // Provide reactive permissions to components and directives
-    const reactivePermissions = getReactivePermissions();
-    app.provide("__v_permission_reactive__", reactivePermissions);
-
-    app.directive("permission", vPermission);
   },
 };
