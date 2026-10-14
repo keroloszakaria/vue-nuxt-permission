@@ -39,6 +39,43 @@ Nuxt module options **do not accept callback functions** for
 If a function is necessary, use a regular Nuxt plugin and the auto-imported
 `usePermission().setPermissions()`.
 
+## Route guards and middleware
+
+Nuxt's auto-imported `usePermission()` and `usePermissionScope()` use the
+same request-local permissions. Prefer Nuxt route middleware when protecting
+pages:
+
+```ts
+// middleware/admin.ts
+export default defineNuxtRouteMiddleware(() => {
+  const { canSync } = usePermission();
+  if (!canSync("admin.read")) {
+    return navigateTo("/login");
+  }
+});
+```
+
+When using the exported Vue Router helpers in Nuxt SSR, **always supply the
+scope**. Without `permissionScope`, the legacy guards can read the
+process-global configuration for backwards compatibility and must not be
+used as per-request authorization:
+
+```ts
+const scope = usePermissionScope();
+const guard = createPermissionGuard({
+  permissionScope: scope,
+  getAuthState: () => ({ isAuthenticated: true }),
+  protectedRoutes: [
+    { path: "/admin", meta: { permissions: "admin.read" } },
+  ],
+});
+```
+
+If `getAuthState()` supplies current permissions, the guard synchronizes
+those permissions to the provided scope (never to the global store). The
+authenticated state must come from your own verified session; neither a
+client-provided permission array nor localStorage establishes authentication.
+
 ## SSR display limitation
 
 The `v-permission` directive hides denied elements during SSR, but their
