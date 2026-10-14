@@ -95,7 +95,11 @@ export const createPermissionGuard = (options: GuardOptions = {}) => {
       }
 
       if (scope) {
-        if (authPermissions !== undefined) {
+        if (!isAuthenticated) {
+          // Logout/guest navigation must not retain prior scoped permissions.
+          userPermissions = [];
+          scope.setPermissions([]);
+        } else if (authPermissions !== undefined) {
           scope.setPermissions(userPermissions);
         }
       } else if (
