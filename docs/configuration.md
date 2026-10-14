@@ -642,7 +642,7 @@ refresh();
 ```
 
 ::: warning configurePermission vs setPermissions
-`configurePermission()` only updates in-memory state. It also saves to localStorage by default; pass `{ persist: false }` to disable. For runtime updates, always use `setPermissions()`.
+`configurePermission()` updates the legacy global permission state and persists to localStorage by default; pass `{ persist: false }` to disable persistence. In Nuxt, use the auto-imported `usePermission().setPermissions()` instead to update the current request/app scope.
 :::
 
 ## Storage Behavior
