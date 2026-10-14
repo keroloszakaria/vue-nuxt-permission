@@ -1,0 +1,40 @@
+name: Library and Nuxt compatibility
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+jobs:
+  library:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run verify
+      - run: npm run docs:build
+
+  nuxt-ssr:
+    name: Nuxt ${{ matrix.nuxt }} SSR
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        nuxt: ["3", "4"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Install Nuxt for compatibility matrix
+        run: npm install --no-save --package-lock=false "nuxt@^${{ matrix.nuxt }}"
+      - name: Build Nuxt integration fixture
+        run: npx nuxt build examples/nuxt-smoke
+      - name: Validate per-request SSR isolation
+        run: node scripts/check-nuxt-ssr.mjs
