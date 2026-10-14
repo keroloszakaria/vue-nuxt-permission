@@ -1,0 +1,11 @@
+{
+  "name": "vue-nuxt-permission-nuxt-smoke",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "nuxt build"
+  },
+  "dependencies": {
+    "vue-nuxt-permission": "file:../.."
+  }
+}
