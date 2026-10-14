@@ -50,6 +50,9 @@ independently. Denied SSR directive content may still exist in the HTML
 source, and localStorage/Base64 is not secure storage.
 
 Read the [Nuxt SSR security guide](./docs/nuxt-ssr-security.md).
+For scoped Nuxt route middleware use the auto-imported `usePermission()`;
+legacy global guard helpers require `permissionScope: usePermissionScope()`
+when used during SSR.
 
 ## Installation
 
