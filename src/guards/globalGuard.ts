@@ -76,14 +76,18 @@ export const globalGuard = async (
     const candidate = authPermissions ?? scope?.permissions.value ?? getCurrentPermissions();
     // Malformed data must never be interpreted as a grant.
     const userPermissions =
-      Array.isArray(candidate) && candidate.every((p) => typeof p === "string")
+      (!scope || isAuthenticated) &&
+      Array.isArray(candidate) &&
+      candidate.every((p) => typeof p === "string")
         ? candidate
         : [];
 
     // If we discovered permissions on the auth payload that the package
     // didn't know about yet, sync them so the directive/composable see them.
     if (scope) {
-      if (authPermissions !== undefined) {
+      if (!isAuthenticated) {
+        scope.setPermissions([]);
+      } else if (authPermissions !== undefined) {
         scope.setPermissions(userPermissions);
       }
     } else if (
