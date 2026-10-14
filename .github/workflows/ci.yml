@@ -14,6 +14,10 @@ jobs:
           node-version: "22"
           cache: npm
       - run: npm ci
+      - name: Report published version for release coordination
+        run: |
+          echo "SOURCE_VERSION=$(node -p 'require("./package.json").version')"
+          echo "NPM_LATEST_VERSION=$(npm view vue-nuxt-permission version)"
       - run: npm run verify
       - run: npm run docs:build
 
