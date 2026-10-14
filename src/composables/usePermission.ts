@@ -1,16 +1,17 @@
 import { clearPermissionCache } from "@/core/cache";
+import { permissionScopeKey, type PermissionScope } from "@/core/scope";
 import {
   configurePermission,
   getCurrentPermissions,
   getReactivePermissions,
 } from "@/core/config";
-import { hasPermission } from "@/core/evaluator";
+import { checkPermissionSync, hasPermission } from "@/core/evaluator";
 import type { PermissionValue } from "@/types";
 import {
   getPermissionsFromStorage,
   savePermissionsToStorage,
 } from "@/utils/storage";
-import { computed } from "vue";
+import { computed, getCurrentInstance, inject } from "vue";
 
 /**
  * usePermission Composable
@@ -20,16 +21,19 @@ import { computed } from "vue";
  * to `configurePermission` or `setPermissions` (from anywhere in the app)
  * will be observed automatically.
  */
-export function usePermission() {
-  // Bind to the global reactive permissions ref. This way the composable
-  // always reflects the current state, even if it was called at module
-  // top level (a pattern some consumers rely on).
-  const permissionsRef = getReactivePermissions();
+export function usePermission(explicitScope?: PermissionScope) {
+  // Components automatically use their app-local scope. Nuxt middleware and
+  // plugins can pass the same scope explicitly from the Nuxt app context.
+  const scope =
+    explicitScope ??
+    (getCurrentInstance() ? inject(permissionScopeKey, null) : null);
+  const permissionsRef = scope?.permissions ?? getReactivePermissions();
 
   // If the global ref is empty but we have a persisted snapshot in storage,
   // hydrate the global state once. This lets newly-mounted apps pick up
   // permissions saved during the previous session without an explicit call.
   if (
+    !scope &&
     (!permissionsRef.value || permissionsRef.value.length === 0) &&
     getCurrentPermissions().length === 0
   ) {
@@ -52,37 +56,8 @@ export function usePermission() {
    * canSync(rule)
    * Instant local check — simplified fallback
    */
-  const canSync = (rule: PermissionValue) => {
-    const current = permissionsRef.value;
-    if (rule === "*") return true;
-    if (typeof rule === "string") return current.includes(rule);
-    if (Array.isArray(rule)) {
-      if (rule.includes("*")) return true;
-      return rule.some((r) => current.includes(r));
-    }
-    if (typeof rule === "object" && rule.permissions && rule.mode) {
-      const { permissions: p, mode } = rule;
-      if (!Array.isArray(p) || p.length === 0) return false;
-      if (p.includes("*")) return true;
-      if (mode === "and") return p.every((v) => current.includes(v));
-      if (mode === "or") return p.some((v) => current.includes(v));
-      if (mode === "not") return !p.some((v) => current.includes(v));
-      if (mode === "startWith")
-        return p.some((pat) => current.some((u) => u.startsWith(pat)));
-      if (mode === "endWith")
-        return p.some((pat) => current.some((u) => u.endsWith(pat)));
-      if (mode === "regex")
-        return p.some((pat) => {
-          try {
-            const r = new RegExp(pat);
-            return current.some((u) => r.test(u));
-          } catch {
-            return false;
-          }
-        });
-    }
-    return false;
-  };
+  const canSync = (rule: PermissionValue) =>
+    checkPermissionSync(rule, permissionsRef.value);
 
   /**
    * refresh()
@@ -91,6 +66,7 @@ export function usePermission() {
    * picked up. If storage is empty, leaves the current global state alone.
    */
   const refresh = () => {
+    if (scope) return scope.refresh();
     clearPermissionCache();
     const stored = getPermissionsFromStorage();
     if (Array.isArray(stored) && stored.length > 0) {
@@ -104,6 +80,10 @@ export function usePermission() {
   const setPermissions = (newPerms: string[]) => {
     if (!Array.isArray(newPerms)) {
       console.error("[v-permission] Permissions must be an array");
+      return;
+    }
+    if (scope) {
+      scope.setPermissions(newPerms);
       return;
     }
     clearPermissionCache();
