@@ -17,9 +17,8 @@ import { computed, getCurrentInstance, inject } from "vue";
  * usePermission Composable
  * Reactive + Async + Cached Permission Checker
  *
- * The returned `permissions` reflects the global reactive state, so any call
- * to `configurePermission` or `setPermissions` (from anywhere in the app)
- * will be observed automatically.
+ * Nuxt and scoped Vue components use an application/request-local store.
+ * Standalone legacy consumers without a scope retain the global API.
  */
 export function usePermission(explicitScope?: PermissionScope) {
   // Components automatically use their app-local scope. Nuxt middleware and
@@ -54,7 +53,7 @@ export function usePermission(explicitScope?: PermissionScope) {
 
   /**
    * canSync(rule)
-   * Instant local check — simplified fallback
+   * Instant local check with the same matching semantics as async can()
    */
   const canSync = (rule: PermissionValue) =>
     checkPermissionSync(rule, permissionsRef.value);
