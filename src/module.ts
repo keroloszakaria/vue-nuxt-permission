@@ -5,6 +5,7 @@ import {
   defineNuxtModule,
 } from "@nuxt/kit";
 import { defu } from "defu";
+import { isSafePermissionEndpoint } from "./utils/permissionEndpoint";
 
 export interface ModuleOptions {
   permissions?: string[];
@@ -47,13 +48,9 @@ export default defineNuxtModule<ModuleOptions>({
       );
     }
 
-    if (
-      options.fetchPermissions &&
-      (!options.fetchPermissions.startsWith("/") ||
-        options.fetchPermissions.startsWith("//"))
-    ) {
+    if (options.fetchPermissions && !isSafePermissionEndpoint(options.fetchPermissions)) {
       throw new TypeError(
-        "[vue-nuxt-permission] Nuxt fetchPermissions must be a same-origin path starting with /",
+        "[vue-nuxt-permission] Nuxt fetchPermissions must be a safe same-origin path starting with /",
       );
     }
 
