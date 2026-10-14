@@ -50,3 +50,20 @@ export function createPermissionScope(
 
   return { permissions, persist, setPermissions, refresh };
 }
+
+/** Normalize API results; an invalid response must never grant access. */
+export function parseFetchedPermissions(payload: unknown): string[] {
+  const value =
+    Array.isArray(payload)
+      ? payload
+      : payload && typeof payload === "object" && "permissions" in payload
+        ? (payload as { permissions: unknown }).permissions
+        : null;
+
+  if (!Array.isArray(value) || !value.every((p) => typeof p === "string")) {
+    throw new TypeError(
+      "[vue-nuxt-permission] fetchPermissions must return string[] or { permissions: string[] }",
+    );
+  }
+  return [...value];
+}
