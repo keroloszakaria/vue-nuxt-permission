@@ -1,44 +1,61 @@
-// @ts-ignore
-import { defineNuxtPlugin, useRuntimeConfig } from "#app";
-// @ts-ignore
-import type { NuxtApp } from "#app";
-import { PermissionPlugin } from "../index";
+// @ts-ignore Nuxt provides this virtual module at runtime.
+import { defineNuxtPlugin, useRequestFetch, useRuntimeConfig, useState } from "#app";
+import { createPermissionScope, permissionScopeKey } from "../core/scope";
+import { createPermissionDirective } from "../directives/v-permission";
 
-export default defineNuxtPlugin(async (nuxtApp: NuxtApp) => {
-  const cfg = useRuntimeConfig().public.permission as any;
+interface RuntimePermissionConfig {
+  permissions?: string[];
+  fetchPermissions?: string;
+  persist?: boolean;
+}
 
-  if (!cfg) {
-    console.warn("[v-permission] No configuration found");
-    return;
-  }
+/**
+ * One scope per Nuxt app/request. The Nuxt useState ref is request-local on
+ * the server and serialized to the client for hydration.
+ */
+export default defineNuxtPlugin(async (nuxtApp) => {
+  const cfg = (useRuntimeConfig().public.permission ?? {}) as RuntimePermissionConfig;
+  const initial = Array.isArray(cfg.permissions) ? cfg.permissions : [];
+  const requestState = useState<string[]>(
+    "vue-nuxt-permission:permissions",
+    () => [...initial],
+  );
+  const scope = createPermissionScope(initial, {
+    state: requestState,
+    persist: cfg.persist !== false,
+  });
 
-  let fetchFn: (() => Promise<string[]>) | undefined;
+  nuxtApp.vueApp.provide(permissionScopeKey, scope);
+  nuxtApp.vueApp.directive("permission", createPermissionDirective(scope));
+  // Nuxt composables also run in route middleware without a Vue component.
+  nuxtApp.provide("permissionScope", scope);
 
-  if (typeof cfg.fetchPermissions === "string") {
-    fetchFn = async () => {
-      try {
-        const r = await fetch(cfg.fetchPermissions);
-        if (!r.ok) {
-          throw new Error(`HTTP ${r.status}: ${r.statusText}`);
-        }
-        return await r.json();
-      } catch (e) {
-        console.error("[v-permission] Failed to fetch permissions:", e);
-        return [];
-      }
-    };
-  } else if (typeof cfg.fetchPermissions === "function") {
-    fetchFn = cfg.fetchPermissions;
-  }
+  if (!cfg.fetchPermissions) return;
 
+  // Server: forward same-origin request headers with useRequestFetch.
+  // Client: useRequestFetch uses the regular Nuxt $fetch implementation.
+  // Await initialization so middleware and rendering see consistent permissions.
+  const requestFetch = useRequestFetch();
   try {
-    nuxtApp.vueApp.use(PermissionPlugin as any, {
-      permissions: cfg.permissions,
-      developmentMode: cfg.developmentMode,
-      fetchPermissions: fetchFn,
-      persist: cfg.persist,
-    });
-  } catch (e) {
-    console.error("[v-permission] Failed to install plugin:", e);
+    const payload = (await requestFetch(cfg.fetchPermissions)) as unknown;
+    const permissions =
+      Array.isArray(payload)
+        ? payload
+        : payload && typeof payload === "object" && "permissions" in payload
+          ? (payload as { permissions: unknown }).permissions
+          : null;
+    if (
+      !Array.isArray(permissions) ||
+      !permissions.every((permission) => typeof permission === "string")
+    ) {
+      throw new TypeError(
+        "[vue-nuxt-permission] fetchPermissions must return string[] or { permissions: string[] }",
+      );
+    }
+    scope.setPermissions(permissions);
+  } catch (error) {
+    // Never restore unverified cached permissions after a failed request.
+    scope.setPermissions([]);
+    console.error("[vue-nuxt-permission] Failed to fetch permissions:", error);
   }
 });
