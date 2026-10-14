@@ -65,20 +65,28 @@ export const globalGuard = async (
 
   try {
     const authState = getAuthState?.() ?? { isAuthenticated: false };
+    const scope = options.permissionScope;
     const isAuthenticated = authState.isAuthenticated;
 
     // Resolve user permissions with full fallback chain.
     // Many consumer projects expose them via authState.user.permissions and
     // never call setPermissions/configurePermission explicitly.
+    const authPermissions =
+      authState.permissions ?? authState.user?.permissions;
+    const candidate = authPermissions ?? scope?.permissions.value ?? getCurrentPermissions();
+    // Malformed data must never be interpreted as a grant.
     const userPermissions =
-      authState.permissions ??
-      authState.user?.permissions ??
-      getCurrentPermissions();
+      Array.isArray(candidate) && candidate.every((p) => typeof p === "string")
+        ? candidate
+        : [];
 
     // If we discovered permissions on the auth payload that the package
     // didn't know about yet, sync them so the directive/composable see them.
-    if (
-      Array.isArray(userPermissions) &&
+    if (scope) {
+      if (authPermissions !== undefined) {
+        scope.setPermissions(userPermissions);
+      }
+    } else if (
       userPermissions.length > 0 &&
       getCurrentPermissions().length === 0
     ) {
