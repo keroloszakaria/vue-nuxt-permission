@@ -239,3 +239,25 @@ describe("SSR scoped route guards", () => {
     expect(scope.permissions.value).toEqual([]);
   });
 });
+
+describe("Nuxt permission endpoint validation", () => {
+  it("only accepts canonical same-origin paths", async () => {
+    const { isSafePermissionEndpoint } = await import("../src/utils/permissionEndpoint");
+    expect(isSafePermissionEndpoint("/api/user/permissions")).toBe(true);
+    expect(isSafePermissionEndpoint("/api/user/permissions?reload=1")).toBe(true);
+
+    for (const input of [
+      "//attacker.example/permissions",
+      "/\\attacker.example/permissions",
+      "/%5cattacker.example",
+      "/%2Fattacker.example",
+      "https://attacker.example/api",
+      "javascript:alert(1)",
+      " /api/permissions",
+      "/api/permissions\n",
+      undefined,
+    ]) {
+      expect(isSafePermissionEndpoint(input)).toBe(false);
+    }
+  });
+});
