@@ -27,6 +27,32 @@ Provides a declarative directive (`v-permission`), advanced route guards (`creat
 
 ---
 
+### Nuxt SSR security
+
+In Nuxt 3/4 the module stores permissions per request, fetches user permissions
+from a same-origin endpoint before SSR rendering, and shares that state during
+hydration. For request-specific permissions use:
+
+```ts
+export default defineNuxtConfig({
+  modules: ["vue-nuxt-permission"],
+  permission: {
+    fetchPermissions: "/api/user/permissions",
+    persist: false,
+  },
+});
+```
+
+**Security boundary:** client-side permission directives and guards are not
+server authorization. Every protected server endpoint must enforce access
+independently. Denied SSR directive content may still exist in the HTML
+source, and localStorage/Base64 is not secure storage.
+
+Read the [Nuxt SSR security guide](./docs/nuxt-ssr-security.md).
+For scoped Nuxt route middleware use the auto-imported `usePermission()`;
+legacy global guard helpers require `permissionScope: usePermissionScope()`
+when used during SSR.
+
 ## Installation
 
 ### Install Package

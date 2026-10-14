@@ -12,27 +12,35 @@ export const MAX_ROUTE_DEPTH = 50;
 
 /**
  * Resolves the user's permissions from the auth state and always returns an
- * array. Encrypted / non-array payloads go through the decrypt hook; anything
- * that still isn't an array falls back to the globally configured permissions
- * instead of leaking an object into the evaluator.
+ * array. Encrypted payloads go through the decrypt hook. Scoped guards
+ * fail closed on invalid data; legacy guards retain the global fallback.
  */
 export async function resolveUserPermissions(
   authState: AuthState,
   decryptFn?: DecryptHook,
+  fallbackPermissions?: string[],
 ): Promise<string[]> {
   const rawPermissions =
     authState.permissions ??
     authState.user?.permissions ??
+    fallbackPermissions ??
     getCurrentPermissions();
 
-  if (Array.isArray(rawPermissions)) return rawPermissions;
+  if (
+    Array.isArray(rawPermissions) &&
+    rawPermissions.every((p) => typeof p === "string")
+  ) return rawPermissions;
 
   if (decryptFn && rawPermissions) {
     const decrypted = await decryptFn(rawPermissions);
-    return Array.isArray(decrypted) ? decrypted : [];
+    return Array.isArray(decrypted) &&
+      decrypted.every((p) => typeof p === "string")
+      ? decrypted
+      : [];
   }
 
-  return getCurrentPermissions();
+  // Never restore another request's global permissions for a scoped guard.
+  return fallbackPermissions === undefined ? getCurrentPermissions() : [];
 }
 
 const isNavigablePath = (path: string) =>

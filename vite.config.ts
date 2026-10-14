@@ -39,6 +39,7 @@ export default defineConfig({
         index: path.resolve(__dirname, "src/index.ts"),
         module: path.resolve(__dirname, "src/module.ts"),
         "runtime/plugin": path.resolve(__dirname, "src/runtime/plugin.ts"),
+        "runtime/usePermission": path.resolve(__dirname, "src/runtime/usePermission.ts"),
       },
       name: "VueNuxtPermission",
       formats: ["es", "cjs"],

@@ -98,25 +98,44 @@ When enabled, console logs like the following appear:
 
 ### `fetchPermissions`
 
-Asynchronously fetch permissions from an API or authentication service. Takes priority over the static `permissions` option.
+**Nuxt 3/4 module:** use a same-origin URL string in `nuxt.config.ts`. The
+module fetches permissions separately for each SSR request (forwarding the
+request's cookies for same-origin endpoints), awaits initialization before
+rendering, and hydrates the same scoped state on the client.
 
-**Type**: `() => Promise<string[]>`
+```ts
+export default defineNuxtConfig({
+  modules: ["vue-nuxt-permission"],
+  permission: { fetchPermissions: "/api/user/permissions", persist: false },
+});
+```
 
-**Default**: `undefined`
+The endpoint must return either `string[]` or
+`{ permissions: string[] }`. Missing, invalid, or failed responses
+**fail closed** to `[]` in Nuxt. The endpoint must enforce authentication and
+authorization server-side.
 
-**Example**:
+Functions are **not supported in Nuxt module options** because callbacks
+cannot be serialized to `runtimeConfig`. For custom loaders, use a separate
+Nuxt plugin and call the auto-imported `usePermission().setPermissions(...)`.
+Do not store user-specific permissions in shared process-global variables.
+
+**Standalone Vue 3 plugin:** `fetchPermissions` accepts an asynchronous
+function. Vue does not await `app.use()`; the directive is registered
+synchronously, and permissions update reactively when the function resolves.
 
 ```ts
 app.use(PermissionPlugin, {
   fetchPermissions: async () => {
     const response = await fetch("/api/user/permissions");
-    const data = await response.json();
-    return data.permissions; // ["user.view", "user.edit", ...]
+    if (!response.ok) throw new Error("Permissions request failed");
+    return (await response.json()).permissions;
   },
 });
 ```
 
-If the fetch fails, the plugin falls back to stored permissions in localStorage, then to an empty array.
+The legacy Vue plugin may fall back to stored permissions after a fetch error;
+that snapshot is only UI state, **never an authorization authority**.
 
 ### `persist`
 
@@ -623,7 +642,7 @@ refresh();
 ```
 
 ::: warning configurePermission vs setPermissions
-`configurePermission()` only updates in-memory state. It does **NOT** save to localStorage. For runtime updates, always use `setPermissions()`.
+`configurePermission()` updates the legacy global permission state and persists to localStorage by default; pass `{ persist: false }` to disable persistence. In Nuxt, use the auto-imported `usePermission().setPermissions()` instead to update the current request/app scope.
 :::
 
 ## Storage Behavior

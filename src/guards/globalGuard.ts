@@ -16,7 +16,18 @@ import {
 
 const LOG_PREFIX = "[v-permission:globalGuard]";
 
-const loopBreaker = createRedirectLoopBreaker();
+const defaultLoopBreaker = createRedirectLoopBreaker();
+const scopedLoopBreakers = new WeakMap<object, ReturnType<typeof createRedirectLoopBreaker>>();
+
+function getLoopBreaker(scope: object | undefined) {
+  if (!scope) return defaultLoopBreaker;
+  let breaker = scopedLoopBreakers.get(scope);
+  if (!breaker) {
+    breaker = createRedirectLoopBreaker();
+    scopedLoopBreakers.set(scope, breaker);
+  }
+  return breaker;
+}
 
 /**
  * Find a matching node in protectedRoutes for the given target path.
@@ -78,22 +89,33 @@ export const globalGuard = async (
     onAllowed,
   } = options;
 
-  const arrivedFromDenial = loopBreaker.consume(to);
+  const scope = options.permissionScope;
+  const breaker = getLoopBreaker(scope);
+  const arrivedFromDenial = breaker.consume(to);
 
   try {
     const authState = getAuthState?.() ?? { isAuthenticated: false };
     const isAuthenticated = authState.isAuthenticated;
+    const decryptFn =
+      options.decrypt ?? options.transform ??
+      (scope ? undefined : getDecryptHook());
 
-    const decryptFn = options.decrypt ?? options.transform ?? getDecryptHook();
+    const authPermissions =
+      authState.permissions ?? authState.user?.permissions;
+    let userPermissions = await resolveUserPermissions(
+      authState,
+      decryptFn,
+      scope?.permissions.value,
+    );
 
-    // Resolve user permissions with full fallback chain.
-    // Many consumer projects expose them via authState.user.permissions and
-    // never call setPermissions/configurePermission explicitly.
-    const userPermissions = await resolveUserPermissions(authState, decryptFn);
-
-    // If we discovered permissions on the auth payload that the package
-    // didn't know about yet, sync them so the directive/composable see them.
-    if (
+    if (scope) {
+      if (!isAuthenticated) {
+        userPermissions = [];
+        scope.setPermissions([]);
+      } else if (authPermissions !== undefined) {
+        scope.setPermissions(userPermissions);
+      }
+    } else if (
       userPermissions.length > 0 &&
       getCurrentPermissions().length === 0
     ) {
@@ -147,7 +169,7 @@ export const globalGuard = async (
           deniedPath,
           onNoAccess,
           isAuthenticated,
-          breaker: loopBreaker,
+          breaker,
         });
       }
     }
@@ -157,7 +179,7 @@ export const globalGuard = async (
   } catch (e) {
     console.error(`${LOG_PREFIX} Unexpected error:`, e);
     if (to.path === loginPath) return next();
-    loopBreaker.mark(loginPath);
+    breaker.mark(loginPath);
     next(loginPath);
   }
 };

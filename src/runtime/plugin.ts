@@ -1,44 +1,75 @@
-// @ts-ignore
-import { defineNuxtPlugin, useRuntimeConfig } from "#app";
-// @ts-ignore
+// @ts-ignore Nuxt provides this virtual module at runtime.
+import { defineNuxtPlugin, useRequestFetch, useRuntimeConfig, useState } from "#app";
+import {
+  createPermissionScope,
+  parseFetchedPermissions,
+  permissionScopeKey,
+} from "../core/scope";
+import { createPermissionDirective } from "../directives/v-permission";
+import { isSafePermissionEndpoint } from "../utils/permissionEndpoint";
+// @ts-ignore Nuxt provides this virtual module at runtime.
 import type { NuxtApp } from "#app";
-import { PermissionPlugin } from "../index";
 
+interface RuntimePermissionConfig {
+  permissions?: string[];
+  fetchPermissions?: string;
+  persist?: boolean;
+}
+
+/**
+ * One scope per Nuxt app/request. The Nuxt useState ref is request-local on
+ * the server and serialized to the client for hydration.
+ */
 export default defineNuxtPlugin(async (nuxtApp: NuxtApp) => {
-  const cfg = useRuntimeConfig().public.permission as any;
+  const cfg = (useRuntimeConfig().public.permission ?? {}) as RuntimePermissionConfig;
+  const initial = Array.isArray(cfg.permissions) ? cfg.permissions : [];
+  const requestState = useState<string[]>(
+    "vue-nuxt-permission:permissions",
+    () => [...initial],
+  );
+  // Serialized with the SSR payload: do not fetch a second time on hydration.
+  const loaded = useState<boolean>(
+    "vue-nuxt-permission:loaded",
+    () => false,
+  );
+  const scope = createPermissionScope(initial, {
+    state: requestState,
+    persist: cfg.persist !== false,
+  });
 
-  if (!cfg) {
-    console.warn("[v-permission] No configuration found");
+  nuxtApp.vueApp.provide(permissionScopeKey, scope);
+  nuxtApp.vueApp.directive("permission", createPermissionDirective(scope));
+  // Nuxt composables also run in route middleware without a Vue component.
+  nuxtApp.provide("permissionScope", scope);
+
+  if (!cfg.fetchPermissions) return;
+  // The server already resolved this request and serialized its permissions.
+  // Re-fetch only for client-only rendering where no SSR payload exists.
+  if (import.meta.client && loaded.value) return;
+  // Public runtime config may be overridden; prevent SSR credential forwarding
+  // to protocol-relative or third-party URLs even if build validation was skipped.
+  if (!isSafePermissionEndpoint(cfg.fetchPermissions)) {
+    scope.setPermissions([]);
+    loaded.value = true;
+    console.error(
+      "[vue-nuxt-permission] fetchPermissions must be a same-origin path",
+    );
     return;
   }
 
-  let fetchFn: (() => Promise<string[]>) | undefined;
-
-  if (typeof cfg.fetchPermissions === "string") {
-    fetchFn = async () => {
-      try {
-        const r = await fetch(cfg.fetchPermissions);
-        if (!r.ok) {
-          throw new Error(`HTTP ${r.status}: ${r.statusText}`);
-        }
-        return await r.json();
-      } catch (e) {
-        console.error("[v-permission] Failed to fetch permissions:", e);
-        return [];
-      }
-    };
-  } else if (typeof cfg.fetchPermissions === "function") {
-    fetchFn = cfg.fetchPermissions;
-  }
-
+  // Server: forward same-origin request headers with useRequestFetch.
+  // Client: useRequestFetch uses the regular Nuxt $fetch implementation.
+  // Await initialization so middleware and rendering see consistent permissions.
+  const requestFetch = useRequestFetch();
   try {
-    nuxtApp.vueApp.use(PermissionPlugin as any, {
-      permissions: cfg.permissions,
-      developmentMode: cfg.developmentMode,
-      fetchPermissions: fetchFn,
-      persist: cfg.persist,
-    });
-  } catch (e) {
-    console.error("[v-permission] Failed to install plugin:", e);
+    const payload = (await requestFetch(cfg.fetchPermissions)) as unknown;
+    const permissions = parseFetchedPermissions(payload);
+    scope.setPermissions(permissions);
+  } catch (error) {
+    // Never restore unverified cached permissions after a failed request.
+    scope.setPermissions([]);
+    console.error("[vue-nuxt-permission] Failed to fetch permissions:", error);
+  } finally {
+    loaded.value = true;
   }
 });

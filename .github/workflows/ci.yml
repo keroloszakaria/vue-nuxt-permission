@@ -1,0 +1,52 @@
+name: Library and Nuxt compatibility
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+jobs:
+  library:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Report published version for release coordination
+        run: |
+          echo "SOURCE_VERSION=$(node -p 'require("./package.json").version')"
+          echo "NPM_LATEST_VERSION=$(npm view vue-nuxt-permission version)"
+          echo "NPM_LATEST_GIT_HEAD=$(npm view vue-nuxt-permission@latest gitHead --json)"
+          echo "Published package dependency metadata:"
+          npm view vue-nuxt-permission@latest dependencies peerDependencies --json
+      - run: npm run verify
+      - run: npm run docs:build
+
+  nuxt-ssr:
+    name: Nuxt ${{ matrix.nuxt }} SSR
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        nuxt: ["3", "4"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - name: Install isolated Nuxt fixture dependencies
+        working-directory: examples/nuxt-smoke
+        run: pnpm add "nuxt@^${{ matrix.nuxt }}"
+      - name: Build Nuxt integration fixture
+        working-directory: examples/nuxt-smoke
+        run: pnpm run build
+      - name: Validate per-request SSR isolation
+        run: node scripts/check-nuxt-ssr.mjs

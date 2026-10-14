@@ -557,9 +557,9 @@ describe("usePermission: canSync edge cases", () => {
     expect(canSync(123 as any)).toBe(false);
   });
 
-  it("canSync throws for null (typeof null === 'object' bug)", () => {
+  it("canSync fails closed for null instead of throwing", () => {
     const { canSync } = usePermission();
-    expect(() => canSync(null as any)).toThrow();
+    expect(canSync(null as any)).toBe(false);
   });
 
   it("canSync returns false for undefined", () => {

@@ -82,16 +82,28 @@ export const createPermissionGuard = (options: GuardOptions = {}) => {
     try {
       const authState = getAuthState?.() ?? { isAuthenticated: false };
       const isAuthenticated = authState.isAuthenticated;
+      const scope = options.permissionScope;
 
       const decryptFn =
-        options.decrypt ?? options.transform ?? getDecryptHook();
+        options.decrypt ?? options.transform ??
+        (scope ? undefined : getDecryptHook());
 
-      const userPermissions = await resolveUserPermissions(
+      const authPermissions =
+        authState.permissions ?? authState.user?.permissions;
+      let userPermissions = await resolveUserPermissions(
         authState,
         decryptFn,
+        scope?.permissions.value,
       );
 
-      if (
+      if (scope) {
+        if (!isAuthenticated) {
+          userPermissions = [];
+          scope.setPermissions([]);
+        } else if (authPermissions !== undefined) {
+          scope.setPermissions(userPermissions);
+        }
+      } else if (
         userPermissions.length > 0 &&
         getCurrentPermissions().length === 0
       ) {

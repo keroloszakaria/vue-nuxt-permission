@@ -5,11 +5,12 @@ import {
   defineNuxtModule,
 } from "@nuxt/kit";
 import { defu } from "defu";
+import { isSafePermissionEndpoint } from "./utils/permissionEndpoint";
 
 export interface ModuleOptions {
   permissions?: string[];
   developmentMode?: boolean;
-  fetchPermissions?: string | (() => Promise<string[]>);
+  fetchPermissions?: string;
   persist?: boolean;
 }
 
@@ -22,7 +23,7 @@ export default defineNuxtModule<ModuleOptions>({
       // The module uses only stable @nuxt/kit APIs (addPlugin, addImports,
       // runtimeConfig) and the runtime plugin uses defineNuxtPlugin from
       // #app — both unchanged in Nuxt 4.
-      nuxt: ">=3.0.0",
+      nuxt: ">=3.0.0 <5.0.0",
     },
   },
 
@@ -40,11 +41,16 @@ export default defineNuxtModule<ModuleOptions>({
 
     if (
       options.fetchPermissions &&
-      typeof options.fetchPermissions !== "string" &&
-      typeof options.fetchPermissions !== "function"
+      typeof options.fetchPermissions !== "string"
     ) {
       throw new TypeError(
-        "[vue-nuxt-permission] fetchPermissions must be a URL string or async function",
+        "[vue-nuxt-permission] Nuxt fetchPermissions must be a URL string (callbacks cannot cross runtimeConfig); use a Nuxt plugin for functions",
+      );
+    }
+
+    if (options.fetchPermissions && !isSafePermissionEndpoint(options.fetchPermissions)) {
+      throw new TypeError(
+        "[vue-nuxt-permission] Nuxt fetchPermissions must be a safe same-origin path starting with /",
       );
     }
 
@@ -56,7 +62,11 @@ export default defineNuxtModule<ModuleOptions>({
     // Auto-import usePermission composable
     addImports({
       name: "usePermission",
-      from: "vue-nuxt-permission",
+      from: resolver.resolve("./runtime/usePermission.mjs"),
+    });
+    addImports({
+      name: "usePermissionScope",
+      from: resolver.resolve("./runtime/usePermission.mjs"),
     });
 
     // Expose options to runtime via runtimeConfig (merge, don't overwrite)
@@ -66,11 +76,7 @@ export default defineNuxtModule<ModuleOptions>({
         permissions: options.permissions,
         developmentMode: options.developmentMode,
         persist: options.persist,
-        // Functions can't be serialized to runtimeConfig — only pass URL strings
-        fetchPermissions:
-          typeof options.fetchPermissions === "string"
-            ? options.fetchPermissions
-            : undefined,
+        fetchPermissions: options.fetchPermissions,
       },
     );
   },
