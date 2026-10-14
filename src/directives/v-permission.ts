@@ -1,4 +1,5 @@
 import { getReactivePermissions } from "@/core/config";
+import type { PermissionScope } from "@/core/scope";
 import { checkPermissionSync, hasPermission } from "@/core/evaluator";
 import { logDebug } from "@/utils/debug";
 import type { DirectiveBinding } from "vue";
@@ -79,9 +80,13 @@ function restoreToDom(el: PermissionElement): void {
  * Apply the resolved permission state to the element.
  * Handles both DOM removal and display:none strategies.
  */
-function applyPermissionState(el: PermissionElement, value: any): void {
+function applyPermissionState(
+  el: PermissionElement,
+  value: any,
+  userPermissions?: string[],
+): void {
   const useShow = el._vPermissionUseShow === true;
-  const allowed = checkPermissionSync(value);
+  const allowed = checkPermissionSync(value, userPermissions);
 
   if (allowed) {
     restoreToDom(el);
@@ -97,12 +102,12 @@ function applyPermissionState(el: PermissionElement, value: any): void {
   // Populate the async cache in the background. Don't let the result override
   // the sync decision above — the sync evaluator already covers every mode
   // supported by hasPermission.
-  hasPermission(value).catch((e) => {
+  hasPermission(value, userPermissions).catch((e) => {
     console.error("[v-permission] Async evaluation failed:", e);
   });
 }
 
-export const vPermission = {
+export const createPermissionDirective = (scope?: PermissionScope) => ({
   mounted(el: PermissionElement, binding: DirectiveBinding) {
     const { modifiers, arg } = binding;
 
@@ -116,18 +121,18 @@ export const vPermission = {
     }
 
     const value = resolveValue(el, binding.value);
-    applyPermissionState(el, value);
+    applyPermissionState(el, value, scope?.permissions.value);
     logDebug("Mounted v-permission =>", value);
 
     // Re-evaluate when the global permissions ref changes
     // (e.g., after login/logout via setPermissions or configurePermission).
     if (!modifiers.once) {
       const stop = watch(
-        getReactivePermissions(),
+        scope?.permissions ?? getReactivePermissions(),
         () => {
           if (el._vPermissionSkipUpdates) return;
           const current = resolveValue(el, binding.value);
-          applyPermissionState(el, current);
+          applyPermissionState(el, current, scope?.permissions.value);
         },
         { deep: true },
       );
@@ -151,7 +156,17 @@ export const vPermission = {
       captureOriginalDisplay(el);
     }
 
-    applyPermissionState(el, value);
+    applyPermissionState(el, value, scope?.permissions.value);
+  },
+
+  // Vue SSR cannot remove an element with a client-only directive. Hide
+  // denied elements during SSR; never include sensitive content in SSR HTML.
+  getSSRProps(binding: DirectiveBinding) {
+    const allowed = checkPermissionSync(
+      isRef(binding.value) ? binding.value.value : binding.value,
+      scope?.permissions.value,
+    );
+    return allowed ? {} : { style: { display: "none" } };
   },
 
   unmounted(el: PermissionElement) {
@@ -170,6 +185,6 @@ export const vPermission = {
     delete el._vPermissionValueRef;
     delete el._vPermissionUseShow;
   },
-};
+});
 
-export {};
+export const vPermission = createPermissionDirective();
