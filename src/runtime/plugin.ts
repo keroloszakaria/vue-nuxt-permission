@@ -37,6 +37,19 @@ export default defineNuxtPlugin(async (nuxtApp: NuxtApp) => {
   nuxtApp.provide("permissionScope", scope);
 
   if (!cfg.fetchPermissions) return;
+  // Public runtime config may be overridden; prevent SSR credential forwarding
+  // to protocol-relative or third-party URLs even if build validation was skipped.
+  if (
+    typeof cfg.fetchPermissions !== "string" ||
+    !cfg.fetchPermissions.startsWith("/") ||
+    cfg.fetchPermissions.startsWith("//")
+  ) {
+    scope.setPermissions([]);
+    console.error(
+      "[vue-nuxt-permission] fetchPermissions must be a same-origin path",
+    );
+    return;
+  }
 
   // Server: forward same-origin request headers with useRequestFetch.
   // Client: useRequestFetch uses the regular Nuxt $fetch implementation.
